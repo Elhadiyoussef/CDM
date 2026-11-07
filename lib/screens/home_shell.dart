@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_state.dart';
-import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'contrats_screen.dart';
 import 'dashboard_screen.dart';
@@ -116,14 +115,9 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final logo = Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.brand, AppColors.brandDark]),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Icon(Icons.savings, color: AppColors.gold, size: 22),
+    final logo = ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.asset('assets/logo/logo.png', width: 40, height: 40, filterQuality: FilterQuality.medium),
     );
     if (!extended) return logo;
     return Row(mainAxisSize: MainAxisSize.min, children: [

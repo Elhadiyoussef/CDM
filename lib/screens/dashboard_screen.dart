@@ -293,6 +293,10 @@ class _Welcome extends StatelessWidget {
       const SizedBox(height: 24),
       EmptyState(
         icon: Icons.savings_outlined,
+        image: ClipRRect(
+          borderRadius: BorderRadius.circular(26),
+          child: Image.asset('assets/logo/logo.png', width: 112, height: 112),
+        ),
         title: 'Bienvenue dans Ma Retraite',
         message: 'Suivez votre épargne retraite, simulez votre capital futur et gardez l’historique de vos opérations. '
             'Vos données restent sur cet appareil, dans un fichier que vous pouvez exporter vers un autre appareil.',
