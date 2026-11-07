@@ -1,0 +1,36 @@
+name: Construire l'APK Android
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build apk --release
+
+      - name: Renommer l'APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk ma-retraite.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ma-retraite-apk
+          path: ma-retraite.apk
+          retention-days: 30
