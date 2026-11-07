@@ -7,6 +7,7 @@ import 'contrats_screen.dart';
 import 'dashboard_screen.dart';
 import 'operations_screen.dart';
 import 'parametres_screen.dart';
+import 'recap_screen.dart';
 import 'simulateur_screen.dart';
 
 class _Dest {
@@ -20,6 +21,7 @@ const _destinations = [
   _Dest('Accueil', Icons.dashboard_outlined, Icons.dashboard),
   _Dest('Contrats', Icons.description_outlined, Icons.description),
   _Dest('Opérations', Icons.swap_vert_outlined, Icons.swap_vert),
+  _Dest('Récap', Icons.table_chart_outlined, Icons.table_chart),
   _Dest('Simulateur', Icons.insights_outlined, Icons.insights),
   _Dest('Paramètres', Icons.settings_outlined, Icons.settings),
 ];
@@ -50,7 +52,8 @@ class _HomeShellState extends State<HomeShell> {
         0 => DashboardScreen(onNavigate: go),
         1 => const ContratsScreen(),
         2 => const OperationsScreen(),
-        3 => const SimulateurScreen(),
+        3 => const RecapScreen(),
+        4 => const SimulateurScreen(),
         _ => const ParametresScreen(),
       };
 
@@ -67,7 +70,7 @@ class _HomeShellState extends State<HomeShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: go,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          labelBehavior: width < 420 ? NavigationDestinationLabelBehavior.onlyShowSelected : NavigationDestinationLabelBehavior.alwaysShow,
           destinations: [
             for (final d in _destinations)
               NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),

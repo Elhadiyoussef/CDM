@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère un fichier JSON de test riche pour Ma Retraite (format schemaVersion 1).
+"""Génère un fichier JSON de test riche pour Ma Retraite (format schemaVersion 2).
 
 Usage : python3 tool/generer_donnees_test.py [fichier_sortie]
 Les données sont fictives et respectent les règles de l'application :
@@ -21,7 +21,17 @@ def add_months(d, n):
     return date(y, m, min(d.day, calendar.monthrange(y, m)[1]))
 def dh(x): return int(round(x * 100))
 
-PRODUITS = ["Assur'Retraite individuelle", "Assur'Retraite Multisupport", "Autre produit retraite"]
+PRODUITS = ["prod-ar-ind", "prod-ar-multi", "prod-autre"]
+REF_PRODUITS = [
+    {"id": "prod-ar-ind", "code": "AR-IND", "nom": "Assur'Retraite individuelle", "assureur": "Sanlam Maroc", "type": "euro",
+     "cotisationMinimale": 20000, "rachatsPartielsMax": 4, "plafondRachatPourcent": 50, "actif": True},
+    {"id": "prod-ar-multi", "code": "AR-MULTI", "nom": "Assur'Retraite Multisupport", "assureur": "Sanlam Maroc", "type": "multisupport",
+     "cotisationMinimale": 50000, "rachatsPartielsMax": 4, "plafondRachatPourcent": 50, "actif": True},
+    {"id": "prod-autre", "code": "AUTRE", "nom": "Autre produit retraite", "assureur": "", "type": "euro",
+     "cotisationMinimale": 20000, "rachatsPartielsMax": 4, "plafondRachatPourcent": 50, "actif": True},
+    {"id": "prod-retraite-avenir", "code": "RA-2008", "nom": "Retraite Avenir (ancienne offre)", "assureur": "Assureur X", "type": "euro",
+     "cotisationMinimale": 30000, "rachatsPartielsMax": 2, "plafondRachatPourcent": 30, "actif": False},
+]
 PERIODES = {"mensuelle": 1, "trimestrielle": 3, "semestrielle": 6, "annuelle": 12}
 
 # reference, produit, debut, echeance, cotisation DH, periodicite, objectif DH, scenario, beneficiaires
@@ -137,7 +147,7 @@ for ref, p, debut, ech, cot, per, obj, sc, benefs in CONTRATS:
     if sc == "suspendu":
         statut = "suspendu"
     contrats.append({
-        "id": cid, "reference": ref, "produit": PRODUITS[p], "dateEffet": debut.isoformat(),
+        "id": cid, "reference": ref, "produitId": PRODUITS[p], "dateEffet": debut.isoformat(),
         "dateEcheance": ech.isoformat(), "cotisation": cot_c if sc not in ("proche_retraite", "rachats_partiels") else (dh(3000) if sc == "proche_retraite" else dh(1250)),
         "periodicite": per, "objectif": dh(obj), "statut": statut,
         "beneficiaires": [{"id": uid(), "nom": n, "lien": l, "quotePart": q} for n, l, q in benefs],
@@ -146,9 +156,33 @@ for ref, p, debut, ech, cot, per, obj, sc, benefs in CONTRATS:
     ops.sort(key=lambda o: o["date"])
     operations.extend(ops)
 
-data = {"app": "ma_retraite_cdm", "schemaVersion": 1, "updatedAt": NOW,
-        "profil": {"nom": "Karim", "theme": "light"}, "contrats": contrats, "operations": operations}
+# ---- Taux annuels (points de base). L'année en cours (2026) n'est pas publiée : elle sera estimée.
+taux = []
+def bp(x): return int(round(x * 100))
+for y in range(2010, 2026):
+    com = 3.0 if y < 2018 else 2.5
+    taux.append({"id": uid(), "produitId": "prod-ar-ind", "annee": y, "tauxCommission": bp(com), "tauxRendement": bp(TAUX[y]),
+                 "commentaire": f"Taux servi {y} (courrier de l'assureur)", "updatedAt": NOW})
+    taux.append({"id": uid(), "produitId": "prod-autre", "annee": y, "tauxCommission": bp(3.5), "tauxRendement": bp(TAUX[y] - 0.2),
+                 "commentaire": "", "updatedAt": NOW})
+    if y >= 2016:
+        taux.append({"id": uid(), "produitId": "prod-ar-multi", "annee": y, "tauxCommission": bp(2.0), "tauxRendement": bp(UC[y]),
+                     "commentaire": "Performance des unités de compte", "updatedAt": NOW})
+taux.append({"id": uid(), "produitId": "prod-ar-ind", "annee": 2026, "tauxCommission": bp(2.5), "tauxRendement": None,
+             "commentaire": "Taux de rendement 2026 publié en janvier 2027", "updatedAt": NOW})
+# Taux négocié propre à un contrat (remplace la commission du produit à partir de 2020).
+c2012 = next(c for c in contrats if c["reference"] == "AR-2012-001245")
+for y in range(2020, 2026):
+    taux.append({"id": uid(), "contratId": c2012["id"], "annee": y, "tauxCommission": bp(1.5), "tauxRendement": None,
+                 "commentaire": "Commission négociée (client fidèle)", "updatedAt": NOW})
+
+data = {"app": "ma_retraite_cdm", "schemaVersion": 2, "updatedAt": NOW,
+        "profil": {"nom": "Karim", "theme": "light"},
+        "parametres": {"methodeInteret": "quinzaines", "estimerAnneeEnCours": True, "tauxEstimation": None, "dateRevalorisation": "12-31"},
+        "produits": [dict(p, updatedAt=NOW) for p in REF_PRODUITS],
+        "tauxAnnuels": taux,
+        "contrats": contrats, "operations": operations}
 out = sys.argv[1] if len(sys.argv) > 1 else "ma_retraite_test.json"
 with open(out, "w", encoding="utf-8") as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
-print(out, len(contrats), "contrats", len(operations), "opérations")
+print(out, len(contrats), "contrats", len(operations), "opérations", len(taux), "taux")

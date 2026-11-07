@@ -15,6 +15,11 @@ void main() {
     final resume = s.analyserImport(raw);
     await s.importer(resume, ModeImport.remplacer);
     expect(s.contrats.length, greaterThanOrEqualTo(8));
+    expect(s.produits.length, 4);
+    expect(s.data.tauxAnnuels, isNotEmpty);
+    final c2012 = s.contrats.firstWhere((c) => c.reference == 'AR-2012-001245');
+    expect(s.tauxEffectif(c2012, 2022).commission, 150); // taux du contrat
+    expect(s.tauxEffectif(c2012, 2018).commission, 250); // taux du produit
 
     for (final c in s.contrats) {
       final ops = s.operations(contratId: c.id);
@@ -28,9 +33,12 @@ void main() {
       expect(partiels.length, lessThanOrEqualTo(4), reason: c.reference);
       expect(ops.where((o) => o.type.estRachat && o.statut == StatutOperation.enAttente).length, lessThanOrEqualTo(1));
       if (c.estCloture) expect(s.capital(contratId: c.id), 0, reason: c.reference);
+      final r = s.recap(contratId: c.id);
+      expect(r.capitalFin, r.epargneNette - r.sorties + r.rendement, reason: c.reference);
       // ignore: avoid_print
       print('${c.reference.padRight(15)} ${c.statut.label.padRight(22)} ${ops.length.toString().padLeft(4)} op. '
-          'capital ${Money.format(s.capital(contratId: c.id))}');
+          'capital ${Money.format(s.capital(contratId: c.id))} · selon taux : brut ${Money.compact(r.epargneBrute)}, '
+          'commissions ${Money.compact(r.commission)}, rendement ${Money.compact(r.rendement)}, fin ${Money.compact(r.capitalFin)}');
     }
   });
 }

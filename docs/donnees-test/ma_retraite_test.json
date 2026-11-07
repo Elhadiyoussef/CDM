@@ -1,16 +1,515 @@
 {
   "app": "ma_retraite_cdm",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "updatedAt": "2026-11-07T19:00:00.000Z",
   "profil": {
     "nom": "Karim",
     "theme": "light"
   },
+  "parametres": {
+    "methodeInteret": "quinzaines",
+    "estimerAnneeEnCours": true,
+    "tauxEstimation": null,
+    "dateRevalorisation": "12-31"
+  },
+  "produits": [
+    {
+      "id": "prod-ar-ind",
+      "code": "AR-IND",
+      "nom": "Assur'Retraite individuelle",
+      "assureur": "Sanlam Maroc",
+      "type": "euro",
+      "cotisationMinimale": 20000,
+      "rachatsPartielsMax": 4,
+      "plafondRachatPourcent": 50,
+      "actif": true,
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "prod-ar-multi",
+      "code": "AR-MULTI",
+      "nom": "Assur'Retraite Multisupport",
+      "assureur": "Sanlam Maroc",
+      "type": "multisupport",
+      "cotisationMinimale": 50000,
+      "rachatsPartielsMax": 4,
+      "plafondRachatPourcent": 50,
+      "actif": true,
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "prod-autre",
+      "code": "AUTRE",
+      "nom": "Autre produit retraite",
+      "assureur": "",
+      "type": "euro",
+      "cotisationMinimale": 20000,
+      "rachatsPartielsMax": 4,
+      "plafondRachatPourcent": 50,
+      "actif": true,
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "prod-retraite-avenir",
+      "code": "RA-2008",
+      "nom": "Retraite Avenir (ancienne offre)",
+      "assureur": "Assureur X",
+      "type": "euro",
+      "cotisationMinimale": 30000,
+      "rachatsPartielsMax": 2,
+      "plafondRachatPourcent": 30,
+      "actif": false,
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    }
+  ],
+  "tauxAnnuels": [
+    {
+      "id": "1c968afc-3c8d-4626-878b-ee634c87cbb1",
+      "produitId": "prod-ar-ind",
+      "annee": 2010,
+      "tauxCommission": 300,
+      "tauxRendement": 360,
+      "commentaire": "Taux servi 2010 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "fcc810c3-cfba-4c13-984d-baa278a85531",
+      "produitId": "prod-autre",
+      "annee": 2010,
+      "tauxCommission": 350,
+      "tauxRendement": 340,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "c21d20b0-7383-42c7-932a-dfd2a25b0205",
+      "produitId": "prod-ar-ind",
+      "annee": 2011,
+      "tauxCommission": 300,
+      "tauxRendement": 350,
+      "commentaire": "Taux servi 2011 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "3f4993a6-df70-4e4d-952f-a575c96db9a2",
+      "produitId": "prod-autre",
+      "annee": 2011,
+      "tauxCommission": 350,
+      "tauxRendement": 330,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "a4ed27dc-41c7-47a4-b849-3aab4ef5f8c3",
+      "produitId": "prod-ar-ind",
+      "annee": 2012,
+      "tauxCommission": 300,
+      "tauxRendement": 340,
+      "commentaire": "Taux servi 2012 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "3e98570b-2fa8-4c2f-839f-e42824d53fdc",
+      "produitId": "prod-autre",
+      "annee": 2012,
+      "tauxCommission": 350,
+      "tauxRendement": 320,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "df39d1cf-c687-4a8d-bb2b-f663152d8da2",
+      "produitId": "prod-ar-ind",
+      "annee": 2013,
+      "tauxCommission": 300,
+      "tauxRendement": 330,
+      "commentaire": "Taux servi 2013 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "4615c6fe-2337-4336-853d-2ae68f3f0236",
+      "produitId": "prod-autre",
+      "annee": 2013,
+      "tauxCommission": 350,
+      "tauxRendement": 310,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "887321b1-984e-435f-9f65-f27b92e8711f",
+      "produitId": "prod-ar-ind",
+      "annee": 2014,
+      "tauxCommission": 300,
+      "tauxRendement": 320,
+      "commentaire": "Taux servi 2014 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "b02b0a2f-2778-42e1-97d9-a74397228d46",
+      "produitId": "prod-autre",
+      "annee": 2014,
+      "tauxCommission": 350,
+      "tauxRendement": 300,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "bf6a2ac8-567e-4103-94ea-d9b2211b03a1",
+      "produitId": "prod-ar-ind",
+      "annee": 2015,
+      "tauxCommission": 300,
+      "tauxRendement": 300,
+      "commentaire": "Taux servi 2015 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "a70fd889-2cfe-4e38-84bb-848730c90e46",
+      "produitId": "prod-autre",
+      "annee": 2015,
+      "tauxCommission": 350,
+      "tauxRendement": 280,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "707e789a-b95d-4a73-bcef-77a71da02792",
+      "produitId": "prod-ar-ind",
+      "annee": 2016,
+      "tauxCommission": 300,
+      "tauxRendement": 290,
+      "commentaire": "Taux servi 2016 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "e447675f-e49f-4c08-ab95-f9b914d3a7b6",
+      "produitId": "prod-autre",
+      "annee": 2016,
+      "tauxCommission": 350,
+      "tauxRendement": 270,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "04a464c9-835c-44af-8b2a-a057c8f68977",
+      "produitId": "prod-ar-multi",
+      "annee": 2016,
+      "tauxCommission": 200,
+      "tauxRendement": 610,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "7e26b777-2f4d-448e-ab06-52656da31b6e",
+      "produitId": "prod-ar-ind",
+      "annee": 2017,
+      "tauxCommission": 300,
+      "tauxRendement": 280,
+      "commentaire": "Taux servi 2017 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "febf1b96-a28b-4c1b-b20a-88ca67ec8700",
+      "produitId": "prod-autre",
+      "annee": 2017,
+      "tauxCommission": 350,
+      "tauxRendement": 260,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "6e266728-6406-4e24-a4fd-7f7a5312604c",
+      "produitId": "prod-ar-multi",
+      "annee": 2017,
+      "tauxCommission": 200,
+      "tauxRendement": 840,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "91cfecb8-6ebe-480c-830c-2cfc3951afbc",
+      "produitId": "prod-ar-ind",
+      "annee": 2018,
+      "tauxCommission": 250,
+      "tauxRendement": 270,
+      "commentaire": "Taux servi 2018 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "f96be04f-74f2-4356-a6f8-66d1f5f3d5e3",
+      "produitId": "prod-autre",
+      "annee": 2018,
+      "tauxCommission": 350,
+      "tauxRendement": 250,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "9d359a60-4316-4a2e-b003-cdb29b98a68d",
+      "produitId": "prod-ar-multi",
+      "annee": 2018,
+      "tauxCommission": 200,
+      "tauxRendement": -420,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "87089dbe-6846-4f0e-8b72-ee658a31ac30",
+      "produitId": "prod-ar-ind",
+      "annee": 2019,
+      "tauxCommission": 250,
+      "tauxRendement": 260,
+      "commentaire": "Taux servi 2019 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "35e258ca-fd4d-4dd6-a08e-7e8dc7e8f5a5",
+      "produitId": "prod-autre",
+      "annee": 2019,
+      "tauxCommission": 350,
+      "tauxRendement": 240,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "d3aef40f-7208-44c6-b3ed-db6959351a2d",
+      "produitId": "prod-ar-multi",
+      "annee": 2019,
+      "tauxCommission": 200,
+      "tauxRendement": 970,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "f2a7b277-aa82-4471-8b8a-82701da63873",
+      "produitId": "prod-ar-ind",
+      "annee": 2020,
+      "tauxCommission": 250,
+      "tauxRendement": 240,
+      "commentaire": "Taux servi 2020 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "5e9869cb-8f70-4f35-af08-f480bdee8f4c",
+      "produitId": "prod-autre",
+      "annee": 2020,
+      "tauxCommission": 350,
+      "tauxRendement": 220,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "5574bb96-94a9-49a4-bd86-59adb885f77c",
+      "produitId": "prod-ar-multi",
+      "annee": 2020,
+      "tauxCommission": 200,
+      "tauxRendement": 180,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "56a3ed0e-6e4f-4b6d-bf86-10c1a05677fe",
+      "produitId": "prod-ar-ind",
+      "annee": 2021,
+      "tauxCommission": 250,
+      "tauxRendement": 250,
+      "commentaire": "Taux servi 2021 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "6bd5b8fe-50bc-4665-80dc-4411371389c4",
+      "produitId": "prod-autre",
+      "annee": 2021,
+      "tauxCommission": 350,
+      "tauxRendement": 230,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "cd37de33-eceb-4e09-a058-be8ee3506379",
+      "produitId": "prod-ar-multi",
+      "annee": 2021,
+      "tauxCommission": 200,
+      "tauxRendement": 790,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "0c05b3e0-47cd-4dcb-9820-e27c443eb495",
+      "produitId": "prod-ar-ind",
+      "annee": 2022,
+      "tauxCommission": 250,
+      "tauxRendement": 290,
+      "commentaire": "Taux servi 2022 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "26596a69-4317-4161-941d-585506a23371",
+      "produitId": "prod-autre",
+      "annee": 2022,
+      "tauxCommission": 350,
+      "tauxRendement": 270,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "1a14df4a-bac7-418f-9b46-c3ec40c4c528",
+      "produitId": "prod-ar-multi",
+      "annee": 2022,
+      "tauxCommission": 200,
+      "tauxRendement": -650,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "b50ea0ab-e108-4378-8b84-55e7cd60fd2e",
+      "produitId": "prod-ar-ind",
+      "annee": 2023,
+      "tauxCommission": 250,
+      "tauxRendement": 330,
+      "commentaire": "Taux servi 2023 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "19d99f96-8415-49d8-acef-9260478acdd6",
+      "produitId": "prod-autre",
+      "annee": 2023,
+      "tauxCommission": 350,
+      "tauxRendement": 310,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "fa067a08-0543-4e44-aafb-bbc21bfa75f4",
+      "produitId": "prod-ar-multi",
+      "annee": 2023,
+      "tauxCommission": 200,
+      "tauxRendement": 540,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "3333556b-44a5-40af-a056-1fc752e451ff",
+      "produitId": "prod-ar-ind",
+      "annee": 2024,
+      "tauxCommission": 250,
+      "tauxRendement": 340,
+      "commentaire": "Taux servi 2024 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "a22e681f-54ce-4a3a-9584-fa70bf52d72e",
+      "produitId": "prod-autre",
+      "annee": 2024,
+      "tauxCommission": 350,
+      "tauxRendement": 320,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "76500ecf-ac55-4e34-a342-85aa11798430",
+      "produitId": "prod-ar-multi",
+      "annee": 2024,
+      "tauxCommission": 200,
+      "tauxRendement": 680,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "c6f0d212-aefc-456f-abcf-78e80acb0268",
+      "produitId": "prod-ar-ind",
+      "annee": 2025,
+      "tauxCommission": 250,
+      "tauxRendement": 320,
+      "commentaire": "Taux servi 2025 (courrier de l'assureur)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "09ef2802-a92a-4283-8fbb-d37ceec4a86a",
+      "produitId": "prod-autre",
+      "annee": 2025,
+      "tauxCommission": 350,
+      "tauxRendement": 300,
+      "commentaire": "",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "a72ff569-f1c0-415d-8b8a-7587518f971d",
+      "produitId": "prod-ar-multi",
+      "annee": 2025,
+      "tauxCommission": 200,
+      "tauxRendement": 410,
+      "commentaire": "Performance des unités de compte",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "5a2b7743-0ba1-4fc6-8d4e-02a5aeb1afb6",
+      "produitId": "prod-ar-ind",
+      "annee": 2026,
+      "tauxCommission": 250,
+      "tauxRendement": null,
+      "commentaire": "Taux de rendement 2026 publié en janvier 2027",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "8bd471a3-151e-4724-be36-a945b8a92e5e",
+      "contratId": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
+      "annee": 2020,
+      "tauxCommission": 150,
+      "tauxRendement": null,
+      "commentaire": "Commission négociée (client fidèle)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "15456054-0357-48e3-af4e-94ca409f0edf",
+      "contratId": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
+      "annee": 2021,
+      "tauxCommission": 150,
+      "tauxRendement": null,
+      "commentaire": "Commission négociée (client fidèle)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "57202b39-0826-4f73-8880-9f2e4790de6a",
+      "contratId": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
+      "annee": 2022,
+      "tauxCommission": 150,
+      "tauxRendement": null,
+      "commentaire": "Commission négociée (client fidèle)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "d598bb64-a33a-4e0d-ae27-883acbed9525",
+      "contratId": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
+      "annee": 2023,
+      "tauxCommission": 150,
+      "tauxRendement": null,
+      "commentaire": "Commission négociée (client fidèle)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "28853d7a-6aa7-47e8-ae83-c49a5056c6aa",
+      "contratId": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
+      "annee": 2024,
+      "tauxCommission": 150,
+      "tauxRendement": null,
+      "commentaire": "Commission négociée (client fidèle)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    },
+    {
+      "id": "d21542fc-d19d-433f-9f5a-b2de653cbb1d",
+      "contratId": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
+      "annee": 2025,
+      "tauxCommission": 150,
+      "tauxRendement": null,
+      "commentaire": "Commission négociée (client fidèle)",
+      "updatedAt": "2026-11-07T19:00:00.000Z"
+    }
+  ],
   "contrats": [
     {
       "id": "71073031-615b-4d58-a92e-b7469089d4fa",
       "reference": "AR-2010-000877",
-      "produit": "Autre produit retraite",
+      "produitId": "prod-autre",
       "dateEffet": "2010-02-10",
       "dateEcheance": "2027-06-30",
       "cotisation": 300000,
@@ -42,7 +541,7 @@
     {
       "id": "8bb3e22c-1e05-4493-a094-5b44eb495ba1",
       "reference": "AR-2012-001245",
-      "produit": "Assur'Retraite individuelle",
+      "produitId": "prod-ar-ind",
       "dateEffet": "2012-03-01",
       "dateEcheance": "2038-03-01",
       "cotisation": 125000,
@@ -62,7 +561,7 @@
     {
       "id": "2da0a56d-1dc1-4f94-8899-7629f2ab169a",
       "reference": "AR-2014-003310",
-      "produit": "Assur'Retraite individuelle",
+      "produitId": "prod-ar-ind",
       "dateEffet": "2014-09-15",
       "dateEcheance": "2040-09-15",
       "cotisation": 600000,
@@ -82,7 +581,7 @@
     {
       "id": "e0ca5c4b-e211-41d4-a088-6f3f29ec5e64",
       "reference": "AR-2016-007831",
-      "produit": "Assur'Retraite Multisupport",
+      "produitId": "prod-ar-multi",
       "dateEffet": "2016-01-20",
       "dateEcheance": "2042-12-31",
       "cotisation": 450000,
@@ -108,7 +607,7 @@
     {
       "id": "f11f8258-c380-4f8d-a381-e9c180909c55",
       "reference": "AR-2019-004587",
-      "produit": "Assur'Retraite individuelle",
+      "produitId": "prod-ar-ind",
       "dateEffet": "2019-11-05",
       "dateEcheance": "2044-06-30",
       "cotisation": 150000,
@@ -134,7 +633,7 @@
     {
       "id": "4e8abfbd-def5-497d-a28b-2a9f82de5fd9",
       "reference": "AR-2021-010422",
-      "produit": "Assur'Retraite Multisupport",
+      "produitId": "prod-ar-multi",
       "dateEffet": "2021-04-01",
       "dateEcheance": "2046-04-01",
       "cotisation": 2400000,
@@ -166,7 +665,7 @@
     {
       "id": "210611f5-3e7c-4e2f-9c73-cb60f488a875",
       "reference": "AR-2023-015560",
-      "produit": "Assur'Retraite individuelle",
+      "produitId": "prod-ar-ind",
       "dateEffet": "2023-02-28",
       "dateEcheance": "2055-02-28",
       "cotisation": 30000,
@@ -179,7 +678,7 @@
     {
       "id": "4b899a05-8759-472a-bba7-a258ed1f11fd",
       "reference": "AR-2025-019901",
-      "produit": "Assur'Retraite individuelle",
+      "produitId": "prod-ar-ind",
       "dateEffet": "2025-09-01",
       "dateEcheance": "2058-09-01",
       "cotisation": 20000,

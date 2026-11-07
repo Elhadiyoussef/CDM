@@ -35,7 +35,7 @@ class Contrat {
   Contrat({
     required this.id,
     required this.reference,
-    required this.produit,
+    required this.produitId,
     required this.dateEffet,
     this.dateEcheance,
     required this.cotisation,
@@ -48,7 +48,8 @@ class Contrat {
 
   final String id;
   final String reference;
-  final String produit;
+  /// Référence vers la table des produits.
+  final String produitId;
   final DateTime dateEffet;
   final DateTime? dateEcheance;
 
@@ -80,7 +81,7 @@ class Contrat {
 
   Contrat copyWith({
     String? reference,
-    String? produit,
+    String? produitId,
     DateTime? dateEffet,
     DateTime? dateEcheance,
     bool clearEcheance = false,
@@ -93,7 +94,7 @@ class Contrat {
       Contrat(
         id: id,
         reference: reference ?? this.reference,
-        produit: produit ?? this.produit,
+        produitId: produitId ?? this.produitId,
         dateEffet: dateEffet ?? this.dateEffet,
         dateEcheance: clearEcheance ? null : (dateEcheance ?? this.dateEcheance),
         cotisation: cotisation ?? this.cotisation,
@@ -104,10 +105,25 @@ class Contrat {
         updatedAt: DateTime.now().toUtc(),
       );
 
+  /// Migration : change le produit sans modifier la date de mise à jour.
+  Contrat migrerProduit(String id) => Contrat(
+        id: this.id,
+        reference: reference,
+        produitId: id,
+        dateEffet: dateEffet,
+        dateEcheance: dateEcheance,
+        cotisation: cotisation,
+        periodicite: periodicite,
+        objectif: objectif,
+        statut: statut,
+        beneficiaires: beneficiaires,
+        updatedAt: updatedAt,
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'reference': reference,
-        'produit': produit,
+        'produitId': produitId,
         'dateEffet': Dates.toIsoDate(dateEffet),
         'dateEcheance': dateEcheance == null ? null : Dates.toIsoDate(dateEcheance!),
         'cotisation': cotisation,
@@ -121,7 +137,8 @@ class Contrat {
   factory Contrat.fromJson(Map<String, dynamic> j) => Contrat(
         id: j['id'] as String,
         reference: (j['reference'] ?? '') as String,
-        produit: (j['produit'] ?? '') as String,
+        // En v1, seul le nom du produit existait : la migration le convertit (voir AppData).
+        produitId: (j['produitId'] ?? j['produit'] ?? '') as String,
         dateEffet: Dates.fromIsoDate(j['dateEffet'] as String),
         dateEcheance:
             j['dateEcheance'] == null ? null : Dates.fromIsoDate(j['dateEcheance'] as String),

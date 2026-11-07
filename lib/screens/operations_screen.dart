@@ -8,6 +8,7 @@ import '../utils/dates.dart';
 import '../utils/money.dart';
 import '../widgets/common.dart';
 import 'operation_form.dart';
+import 'saisie_masse_screen.dart';
 
 enum _Filtre { toutes, apports, rachats, attente, anomalies }
 
@@ -57,6 +58,14 @@ class _OperationsScreenState extends State<OperationsScreen> {
     return PageBody(children: [
       Row(children: [
         Expanded(child: Text('Opérations', style: t.textTheme.headlineSmall)),
+        IconButton.outlined(
+          tooltip: 'Saisie de masse / import CSV',
+          onPressed: s.contrats.any((c) => !c.estCloture)
+              ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SaisieMasseScreen(contratId: _contratId)))
+              : null,
+          icon: const Icon(Icons.table_rows_outlined),
+        ),
+        const SizedBox(width: 8),
         FilledButton.icon(
           onPressed: s.contrats.any((c) => !c.estCloture) ? () => showOperationForm(context, contratId: _contratId) : null,
           icon: const Icon(Icons.add),

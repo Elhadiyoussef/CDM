@@ -14,11 +14,13 @@ class TransferService {
 
   /// Ouvre la boîte « Enregistrer sous » (desktop) ou le sélecteur de dossier (mobile).
   /// Retourne false si l'utilisateur a annulé.
-  static Future<bool> enregistrer(String json, String fileName) async {
+  static Future<bool> enregistrer(String contenu, String fileName, {String mimeType = 'application/json'}) async {
+    // BOM UTF-8 pour les CSV : Excel affiche alors correctement les accents.
+    final bytes = mimeType == 'text/csv' ? [0xEF, 0xBB, 0xBF, ...utf8.encode(contenu)] : utf8.encode(contenu);
     final uri = await FilePicker.saveFile(
       fileName: fileName,
-      bytes: Uint8List.fromList(utf8.encode(json)),
-      mimeType: 'application/json',
+      bytes: Uint8List.fromList(bytes),
+      mimeType: mimeType,
     );
     return uri != null || kIsWeb;
   }
@@ -37,15 +39,20 @@ class TransferService {
     ));
   }
 
-  /// Sélectionne un fichier .json et retourne son contenu, ou null si annulé.
-  static Future<String?> choisirFichier() async {
+  /// Sélectionne un fichier (.json par défaut) et retourne son contenu texte, ou null si annulé.
+  static Future<String?> choisirFichier({List<String> extensions = const ['json']}) async {
     final file = await FilePicker.pickFile(
-      dialogTitle: 'Importer une sauvegarde Ma Retraite',
+      dialogTitle: 'Choisir un fichier',
       type: FileType.custom,
-      allowedExtensions: const ['json'],
+      allowedExtensions: extensions,
     );
     if (file == null) return null;
     final bytes = await file.readAsBytes();
-    return utf8.decode(bytes, allowMalformed: false);
+    try {
+      return utf8.decode(bytes).replaceFirst('\uFEFF', '');
+    } on FormatException {
+      // Fichier CSV enregistré par Excel en Windows-1252 / Latin-1.
+      return latin1.decode(bytes);
+    }
   }
 }

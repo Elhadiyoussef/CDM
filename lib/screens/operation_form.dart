@@ -118,7 +118,7 @@ class _OperationFormState extends State<_OperationForm> {
     final t = Theme.of(context);
     final ouverts = s.contrats.where((c) => !c.estCloture).toList();
     final capital = s.capital(contratId: _contratId);
-    final regles = s.regles;
+    final regles = s.produitDe(s.contrat(_contratId)!);
     const gap = SizedBox(height: 14);
 
     return Form(
@@ -129,7 +129,7 @@ class _OperationFormState extends State<_OperationForm> {
             initialValue: _contratId,
             decoration: const InputDecoration(labelText: 'Contrat', prefixIcon: Icon(Icons.description_outlined)),
             items: [
-              for (final c in ouverts) DropdownMenuItem(value: c.id, child: Text('${c.reference} · ${c.produit}')),
+              for (final c in ouverts) DropdownMenuItem(value: c.id, child: Text('${c.reference} · ${s.nomProduit(c)}', overflow: TextOverflow.ellipsis)),
             ],
             onChanged: (v) => setState(() {
               _contratId = v!;

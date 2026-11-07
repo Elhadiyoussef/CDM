@@ -1,6 +1,6 @@
 # Évolution V2 — Produits, taux annuels, saisie de masse et récapitulatif annuel
 
-**Statut :** proposition de conception, rien n'est encore développé
+**Statut :** ✅ développé (voir la section 10 pour les choix validés)
 **Date :** 7 novembre 2026
 **Version actuelle de l'application :** format de données `schemaVersion: 1`
 
@@ -269,3 +269,35 @@ Chaque étape est livrée par un commit séparé, et l'APK est recompilé automa
 | D | La revalorisation est-elle versée **au 31 décembre** ou à une autre date ? | Au 31/12 |
 | E | Le rendement de l'année en cours (non encore publié) doit-il être **estimé** avec le taux de l'année précédente ? | Oui, affiché en italique avec la mention « estimé » |
 | F | La saisie de masse doit-elle pouvoir importer un **fichier Excel / CSV** de cotisations ? | Pas dans cette version ; peut être ajouté à l'étape 5 si besoin |
+
+---
+
+## 10. Décisions validées et réalisation
+
+| # | Réponse | Ce qui a été développé |
+|---|---|---|
+| A | Commission sur chaque versement | `commission = montant × taux commission de l'année`, calculée sur chaque cotisation et chaque versement libre |
+| B | Rendement réglementé, calculé comme un **compte sur carnet**, avec le détail par cotisation | Méthode par **quinzaines** (par défaut) : un versement rapporte à partir de la quinzaine suivante (1er ou 16 du mois), un retrait cesse de rapporter dès le début de sa quinzaine ; intérêts = base × taux × quinzaines / 24. En touchant une année du récapitulatif, on voit le détail ligne par ligne (brut, commission, base nette, quinzaines, intérêts). La méthode « prorata au jour » reste disponible dans Paramètres. |
+| C | Les deux cas (produit et contrat) | Écran « Taux annuels » avec deux onglets : *Par produit* et *Par contrat*. Un taux du contrat remplace celui du produit, champ par champ (une case vide reprend le taux du produit, affiché en gris). |
+| D | Date de revalorisation affichée pour information | Paramétrable (31 décembre par défaut), rappelée dans le récapitulatif et utilisée comme date des opérations de rendement générées |
+| E | Estimation paramétrable | Paramètres → Calcul : activer ou non l'estimation de l'année en cours, et choisir un taux d'estimation (vide = dernier taux connu). Les montants estimés sont affichés en italique. |
+| F | Import CSV et saisie comme un tableur | Saisie de masse : génération par période, grille modifiable, **Coller depuis Excel** (presse-papiers), **Importer CSV**. Même chose pour la table des taux. |
+
+### Formats acceptés (copier-coller Excel ou CSV, séparateur tabulation, « ; » ou « , »)
+
+**Cotisations** — `Date ; Montant ; Statut ; Type ; Libellé`
+
+```
+05/01/2025;1500;exécutée;cotisation;Prélèvement janvier
+05/02/2025;1500,00;rejetée;cotisation;Provision insuffisante
+2025-03-17;10000;exécutée;versement;Prime annuelle
+```
+
+**Taux annuels** — `Année ; Commission % ; Rendement % ; Commentaire`
+
+```
+2024;3,00;3,40;Courrier du 12/01/2025
+2025;2,50;3,20;
+```
+
+Une première ligne d'en-tête est ignorée automatiquement. Les colonnes Statut, Type et Libellé sont facultatives.

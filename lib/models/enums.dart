@@ -29,6 +29,7 @@ enum TypeOperation {
   versement('Versement libre', true),
   revalorisation('Revalorisation', true),
   frais('Frais', false),
+  commission('Commission', false),
   rachatPartiel('Rachat partiel', false),
   rachatTotal('Rachat total', false);
 
@@ -37,6 +38,9 @@ enum TypeOperation {
 
   /// true si l'opération augmente le capital.
   final bool credit;
+
+  /// Opérations calculées depuis la table des taux (ignorées par le moteur de recalcul).
+  bool get estCalculable => this == revalorisation || this == commission;
 
   bool get estRachat => this == rachatPartiel || this == rachatTotal;
 
@@ -59,4 +63,18 @@ enum StatutOperation {
 
   static StatutOperation fromName(String? n) =>
       values.firstWhere((e) => e.name == n, orElse: () => enAttente);
+}
+
+/// Provenance d'une opération.
+enum OrigineOperation {
+  manuelle('Saisie manuelle'),
+  saisieMasse('Saisie de masse'),
+  importCsv('Import CSV'),
+  calculAnnuel('Calcul annuel');
+
+  const OrigineOperation(this.label);
+  final String label;
+
+  static OrigineOperation fromName(String? n) =>
+      values.firstWhere((e) => e.name == n, orElse: () => manuelle);
 }

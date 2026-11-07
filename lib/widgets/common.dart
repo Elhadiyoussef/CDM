@@ -211,6 +211,7 @@ IconData iconForType(TypeOperation t) => switch (t) {
       TypeOperation.versement => Icons.add_card,
       TypeOperation.revalorisation => Icons.trending_up,
       TypeOperation.frais => Icons.receipt_long,
+      TypeOperation.commission => Icons.percent,
       TypeOperation.rachatPartiel => Icons.call_made,
       TypeOperation.rachatTotal => Icons.logout,
     };

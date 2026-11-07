@@ -10,6 +10,8 @@ class Operation {
     required this.date,
     this.statut = StatutOperation.executee,
     this.libelle = '',
+    this.origine = OrigineOperation.manuelle,
+    this.lotId,
     required this.updatedAt,
   });
 
@@ -22,6 +24,10 @@ class Operation {
   final DateTime date;
   final StatutOperation statut;
   final String libelle;
+  final OrigineOperation origine;
+
+  /// Identifiant du lot (saisie de masse, import, calcul annuel) pour pouvoir l'annuler d'un coup.
+  final String? lotId;
   final DateTime updatedAt;
 
   bool get estExecutee => statut == StatutOperation.executee;
@@ -37,6 +43,8 @@ class Operation {
         date: date,
         statut: statut ?? this.statut,
         libelle: libelle ?? this.libelle,
+        origine: origine,
+        lotId: lotId,
         updatedAt: DateTime.now().toUtc(),
       );
 
@@ -48,6 +56,8 @@ class Operation {
         'date': Dates.toIsoDate(date),
         'statut': statut.name,
         'libelle': libelle,
+        if (origine != OrigineOperation.manuelle) 'origine': origine.name,
+        if (lotId != null) 'lotId': lotId,
         'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
@@ -59,6 +69,8 @@ class Operation {
         date: Dates.fromIsoDate(j['date'] as String),
         statut: StatutOperation.fromName(j['statut'] as String?),
         libelle: (j['libelle'] ?? '') as String,
+        origine: OrigineOperation.fromName(j['origine'] as String?),
+        lotId: j['lotId'] as String?,
         updatedAt: DateTime.tryParse((j['updatedAt'] ?? '') as String) ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       );
