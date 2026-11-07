@@ -10,6 +10,8 @@ import '../widgets/common.dart';
 import 'contrat_form.dart';
 import 'operation_form.dart';
 import 'operations_screen.dart';
+import 'referentiels_screen.dart';
+import 'saisie_masse_screen.dart';
 
 class ContratsScreen extends StatelessWidget {
   const ContratsScreen({super.key});
@@ -68,7 +70,7 @@ class _ContratCard extends StatelessWidget {
             Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(c.produit, style: t.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(s.nomProduit(c), style: t.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text('N° ${c.reference}', style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
                 ]),
               ),
@@ -139,14 +141,14 @@ class ContratDetailScreen extends StatelessWidget {
     final infos = SectionCard(
       title: 'Caractéristiques',
       child: Column(children: [
-        _InfoRow('Produit', c.produit),
+        _InfoRow('Produit', s.nomProduit(c)),
         _InfoRow('Référence', c.reference),
         _InfoRow("Date d'effet", Dates.long(c.dateEffet)),
         _InfoRow('Échéance', c.dateEcheance == null ? 'Non renseignée' : Dates.long(c.dateEcheance!)),
         _InfoRow('Cotisation', '${Money.format(c.cotisation)} · ${c.periodicite.label.toLowerCase()}'),
         _InfoRow('Prochaine cotisation', prochaine == null ? '—' : Dates.long(prochaine)),
         _InfoRow('Objectif', c.objectif == 0 ? 'Non défini' : Money.format(c.objectif)),
-        _InfoRow('Rachats partiels', '${s.nbRachatsPartiels(id)} / ${s.regles.rachatsPartielsMax}'),
+        _InfoRow('Rachats partiels', '${s.nbRachatsPartiels(id)} / ${s.produitDe(c).rachatsPartielsMax}'),
       ]),
     );
     final benefs = SectionCard(
@@ -172,7 +174,25 @@ class ContratDetailScreen extends StatelessWidget {
           IconButton(tooltip: 'Modifier', onPressed: () => showContratForm(context, existing: c), icon: const Icon(Icons.edit_outlined)),
           PopupMenuButton<String>(
             onSelected: (v) async {
-              if (v == 'delete') {
+              if (v == 'masse') {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => SaisieMasseScreen(contratId: id)));
+              } else if (v == 'taux') {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => TauxAnnuelsScreen(contratId: id)));
+              } else if (v == 'calcul') {
+                final ok = await confirmer(context,
+                    titre: 'Calculer commissions et rendements ?',
+                    message: 'Pour chaque année terminée, l’application crée une opération « Commission » et une '
+                        'opération « Rendement » à partir de la table des taux (date : ${s.parametres.jourRevalorisation}/'
+                        '${s.parametres.moisRevalorisation}). Les années contenant déjà des revalorisations ou commissions '
+                        'saisies à la main ne sont pas modifiées.',
+                    confirmer: 'Calculer');
+                if (!ok) return;
+                final r = await s.genererOperationsAnnuelles(id);
+                if (context.mounted) {
+                  showMessage(context,
+                      '${r.traitees} année(s) calculée(s)${r.ignorees.isEmpty ? '' : ' · ignorées (saisies à la main) : ${r.ignorees.join(', ')}'}.');
+                }
+              } else if (v == 'delete') {
                 final ok = await confirmer(context,
                     titre: 'Supprimer ce contrat ?',
                     message: 'Le contrat et ses ${ops.length} opérations seront supprimés de cet appareil.',
@@ -184,8 +204,13 @@ class ContratDetailScreen extends StatelessWidget {
                 }
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Supprimer'))),
+            itemBuilder: (_) => [
+              if (!c.estCloture)
+                const PopupMenuItem(value: 'masse', child: ListTile(leading: Icon(Icons.table_rows_outlined), title: Text('Saisie de masse'))),
+              const PopupMenuItem(value: 'taux', child: ListTile(leading: Icon(Icons.percent), title: Text('Taux propres au contrat'))),
+              const PopupMenuItem(
+                  value: 'calcul', child: ListTile(leading: Icon(Icons.calculate_outlined), title: Text('Calculer commissions et rendements'))),
+              const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Supprimer'))),
             ],
           ),
         ],
@@ -199,8 +224,22 @@ class ContratDetailScreen extends StatelessWidget {
             ),
       body: PageBody(children: [
         Row(children: [
-          Expanded(child: Text(c.produit, style: t.textTheme.titleMedium)),
+          Expanded(child: Text(s.nomProduit(c), style: t.textTheme.titleMedium)),
           StatusChip.contrat(c.statut),
+        ]),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if (!c.estCloture)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SaisieMasseScreen(contratId: id))),
+              icon: const Icon(Icons.table_rows_outlined),
+              label: const Text('Saisie de masse'),
+            ),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TauxAnnuelsScreen(contratId: id))),
+            icon: const Icon(Icons.percent),
+            label: const Text('Taux du contrat'),
+          ),
         ]),
         const SizedBox(height: 16),
         ResponsiveGrid(minItemWidth: 200, children: [
@@ -235,6 +274,36 @@ class ContratDetailScreen extends StatelessWidget {
           infos,
           const SizedBox(height: 12),
           benefs,
+        ],
+        if (s.lots(id).isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SectionCard(
+            title: 'Saisies groupées',
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Column(children: [
+              for (final l in s.lots(id))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const CircleAvatar(child: Icon(Icons.layers_outlined, size: 20)),
+                  title: Text('${l.origine.label} · ${l.nb} opération(s)', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('${Dates.day(l.du)} → ${Dates.day(l.au)} · ${Money.format(l.total)}'),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      final ok = await confirmer(context,
+                          titre: 'Annuler cette saisie ?',
+                          message: 'Les ${l.nb} opérations de ce lot seront supprimées.',
+                          confirmer: 'Supprimer le lot',
+                          destructive: true);
+                      if (ok) {
+                        final n = await s.annulerLot(l.lotId);
+                        if (context.mounted) showMessage(context, '$n opération(s) supprimée(s).');
+                      }
+                    },
+                    child: const Text('Annuler'),
+                  ),
+                ),
+            ]),
+          ),
         ],
         const SizedBox(height: 12),
         SectionCard(

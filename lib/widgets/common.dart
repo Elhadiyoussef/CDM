@@ -140,8 +140,11 @@ class StatCard extends StatelessWidget {
 }
 
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, required this.message, this.actions = const []});
+  const EmptyState({super.key, required this.icon, required this.title, required this.message, this.actions = const [], this.image});
   final IconData icon;
+
+  /// Image affichée à la place de l'icône (ex. logo de l'application).
+  final Widget? image;
   final String title;
   final String message;
   final List<Widget> actions;
@@ -152,11 +155,12 @@ class EmptyState extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
       child: Column(children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: t.colorScheme.primaryContainer, shape: BoxShape.circle),
-          child: Icon(icon, size: 36, color: t.colorScheme.onPrimaryContainer),
-        ),
+        image ??
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: t.colorScheme.primaryContainer, shape: BoxShape.circle),
+              child: Icon(icon, size: 36, color: t.colorScheme.onPrimaryContainer),
+            ),
         const SizedBox(height: 20),
         Text(title, style: t.textTheme.titleLarge, textAlign: TextAlign.center),
         const SizedBox(height: 8),
@@ -211,6 +215,7 @@ IconData iconForType(TypeOperation t) => switch (t) {
       TypeOperation.versement => Icons.add_card,
       TypeOperation.revalorisation => Icons.trending_up,
       TypeOperation.frais => Icons.receipt_long,
+      TypeOperation.commission => Icons.percent,
       TypeOperation.rachatPartiel => Icons.call_made,
       TypeOperation.rachatTotal => Icons.logout,
     };

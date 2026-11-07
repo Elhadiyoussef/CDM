@@ -1,0 +1,15 @@
+Date;Montant;Statut;Type;Libellé
+05/01/2024;1500,00;exécutée;cotisation;Prélèvement janvier
+05/02/2024;1500,00;exécutée;cotisation;Prélèvement février
+05/03/2024;1500,00;rejetée;cotisation;Provision insuffisante
+18/03/2024;1500,00;exécutée;cotisation;Régularisation mars
+05/04/2024;1500,00;exécutée;cotisation;Prélèvement avril
+05/05/2024;1500,00;exécutée;cotisation;Prélèvement mai
+20/05/2024;10000,00;exécutée;versement;Prime annuelle
+05/06/2024;1500,00;exécutée;cotisation;Prélèvement juin
+05/07/2024;1500,00;exécutée;cotisation;Prélèvement juillet
+05/08/2024;1500,00;exécutée;cotisation;Prélèvement août
+05/09/2024;1500,00;exécutée;cotisation;Prélèvement septembre
+05/10/2024;1500,00;exécutée;cotisation;Prélèvement octobre
+05/11/2024;1500,00;exécutée;cotisation;Prélèvement novembre
+05/12/2024;1500,00;en attente;cotisation;Prélèvement décembre

@@ -94,13 +94,13 @@ class _SimulateurScreenState extends State<SimulateurScreen> {
           decoration: const InputDecoration(labelText: 'Épargne mensuelle', suffixText: 'DH'),
         ),
         const SizedBox(height: 20),
-        _SliderLabel('Durée', '${_annees.round()} ans · ${fin.year}'),
+        _SliderLabel('Durée', '${_ans(_annees)} · ${fin.year}'),
         Slider(
           value: _annees,
           min: 1,
           max: 40,
           divisions: 39,
-          label: '${_annees.round()} ans',
+          label: _ans(_annees),
           onChanged: (v) => setState(() => _annees = v),
         ),
         _SliderLabel('Rendement annuel central', '${_tauxCentral.toStringAsFixed(1).replaceAll('.', ',')} %'),
@@ -129,7 +129,7 @@ class _SimulateurScreenState extends State<SimulateurScreen> {
       ]),
       const SizedBox(height: 12),
       SectionCard(
-        title: 'Projection sur ${_annees.round()} ans',
+        title: 'Projection sur ${_ans(_annees)}',
         child: _ProjectionChart(series: series, colors: [for (final s in scenarios) s.color], verse: totalVerse, mois: mois),
       ),
     ]);
@@ -330,3 +330,5 @@ class _ProjectionChart extends StatelessWidget {
     return 10 * mag;
   }
 }
+
+String _ans(double v) => '${v.round()} an${v.round() > 1 ? 's' : ''}';

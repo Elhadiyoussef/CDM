@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/contrat.dart';
 import '../models/enums.dart';
-import '../models/regles.dart';
 import '../state/app_state.dart';
 import '../utils/dates.dart';
 import '../utils/money.dart';
@@ -56,7 +55,7 @@ class _ContratFormState extends State<_ContratForm> {
   late final TextEditingController _ref;
   late final TextEditingController _cotisation;
   late final TextEditingController _objectif;
-  late String _produit;
+  late String _produitId;
   late DateTime _dateEffet;
   DateTime? _echeance;
   late Periodicite _periodicite;
@@ -71,8 +70,9 @@ class _ContratFormState extends State<_ContratForm> {
     _ref = TextEditingController(text: c?.reference ?? '');
     _cotisation = TextEditingController(text: c == null ? '' : Money.toInput(c.cotisation));
     _objectif = TextEditingController(text: c == null || c.objectif == 0 ? '' : Money.toInput(c.objectif));
-    _produit = c?.produit ?? ReglesProduit.produits.first;
-    if (!ReglesProduit.produits.contains(_produit)) _produit = ReglesProduit.produits.last;
+    final s = AppScope.read(context);
+    final actifs = s.produits.where((p) => p.actif || p.id == c?.produitId).toList();
+    _produitId = c?.produitId ?? (actifs.isEmpty ? s.produits.first.id : actifs.first.id);
     _dateEffet = c?.dateEffet ?? Dates.today();
     _echeance = c?.dateEcheance;
     _periodicite = c?.periodicite ?? Periodicite.mensuelle;
@@ -95,14 +95,14 @@ class _ContratFormState extends State<_ContratForm> {
         Contrat(
           id: newId(),
           reference: '',
-          produit: _produit,
+          produitId: _produitId,
           dateEffet: _dateEffet,
           cotisation: 0,
           updatedAt: DateTime.now().toUtc(),
         );
     final c = base.copyWith(
       reference: _ref.text.trim(),
-      produit: _produit,
+      produitId: _produitId,
       dateEffet: _dateEffet,
       dateEcheance: _echeance,
       clearEcheance: _echeance == null,
@@ -130,7 +130,8 @@ class _ContratFormState extends State<_ContratForm> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final regles = AppScope.read(context).regles;
+    final s = AppScope.of(context);
+    final regles = s.produit(_produitId) ?? s.produits.first;
     const gap = SizedBox(height: 14);
     return Form(
       key: _form,
@@ -143,10 +144,14 @@ class _ContratFormState extends State<_ContratForm> {
         ),
         gap,
         DropdownButtonFormField<String>(
-          initialValue: _produit,
+          initialValue: _produitId,
+          isExpanded: true,
           decoration: const InputDecoration(labelText: 'Produit', prefixIcon: Icon(Icons.inventory_2_outlined)),
-          items: [for (final p in ReglesProduit.produits) DropdownMenuItem(value: p, child: Text(p))],
-          onChanged: (v) => setState(() => _produit = v!),
+          items: [
+            for (final p in s.produits.where((p) => p.actif || p.id == _produitId))
+              DropdownMenuItem(value: p.id, child: Text(p.nom, overflow: TextOverflow.ellipsis)),
+          ],
+          onChanged: (v) => setState(() => _produitId = v!),
         ),
         gap,
         Row(children: [

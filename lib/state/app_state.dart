@@ -8,7 +8,10 @@ import '../models/app_data.dart';
 import '../models/contrat.dart';
 import '../models/enums.dart';
 import '../models/operation.dart';
-import '../models/regles.dart';
+import '../models/parametres.dart';
+import '../models/produit.dart';
+import '../models/taux_annuel.dart';
+import '../services/calcul_annuel.dart';
 import '../utils/dates.dart';
 
 const _uuid = Uuid();
@@ -33,11 +36,13 @@ class ResultatImport {
 
 /// Point d'accès aux données. Toute modification est enregistrée immédiatement dans le JSON.
 class AppState extends ChangeNotifier {
-  AppState({JsonStorage? storage, this.regles = ReglesProduit.standard})
-      : _storage = storage ?? JsonStorage.create();
+  AppState({JsonStorage? storage, DateTime? today})
+      : _storage = storage ?? JsonStorage.create(),
+        _today = today; // ignore: prefer_initializing_formals
 
   final JsonStorage _storage;
-  final ReglesProduit regles;
+  final DateTime? _today;
+  DateTime get today => _today ?? DateTime.now();
 
   AppData _data = AppData();
   bool _loaded = false;
@@ -212,6 +217,7 @@ class AppState extends ChangeNotifier {
     }
     if (montant <= 0) errors.add('Le montant doit être supérieur à zéro.');
     final cap = capital(contratId: contratId);
+    final regles = produitDe(c);
     if (type == TypeOperation.rachatPartiel && statut != StatutOperation.annulee && statut != StatutOperation.rejetee) {
       if (nbRachatsPartiels(contratId) >= regles.rachatsPartielsMax) {
         errors.add('Nombre maximal de rachats partiels atteint (${regles.rachatsPartielsMax}).');
@@ -261,6 +267,247 @@ class AppState extends ChangeNotifier {
     }
   }
 
+
+  // ---------------------------------------------------------------- produits
+
+  List<Produit> get produits => List.unmodifiable(_data.produits);
+
+  Produit? produit(String id) {
+    for (final p in _data.produits) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Produit produitDe(Contrat c) =>
+      produit(c.produitId) ?? _data.produits.firstWhere((p) => p.id == Produit.idAutre, orElse: () => Produit.parDefaut().last);
+
+  String nomProduit(Contrat c) => produitDe(c).nom;
+
+  Future<void> saveProduit(Produit p) async {
+    final i = _data.produits.indexWhere((e) => e.id == p.id);
+    if (i >= 0) {
+      _data.produits[i] = p;
+    } else {
+      _data.produits.add(p);
+    }
+    await _commit();
+  }
+
+  bool produitUtilise(String id) => _data.contrats.any((c) => c.produitId == id);
+
+  Future<void> deleteProduit(String id) async {
+    if (produitUtilise(id)) throw StateError('Produit utilisé par un contrat.');
+    _data.produits.removeWhere((p) => p.id == id);
+    _data.tauxAnnuels.removeWhere((t) => t.produitId == id);
+    await _commit();
+  }
+
+  // ---------------------------------------------------------------- taux annuels
+
+  ParametresCalcul get parametres => _data.parametres;
+
+  Future<void> setParametres(ParametresCalcul p) async {
+    _data.parametres = p;
+    await _commit();
+  }
+
+  /// Lignes de taux d'une cible (produit ou contrat), triées par année décroissante.
+  List<TauxAnnuel> tauxDe({String? produitId, String? contratId}) => _data.tauxAnnuels
+      .where((t) => contratId != null ? t.contratId == contratId : (t.produitId == produitId && t.contratId == null))
+      .toList()
+    ..sort((a, b) => b.annee.compareTo(a.annee));
+
+  /// Enregistre l'ensemble des lignes d'une cible (remplace les précédentes).
+  Future<void> saveTaux({String? produitId, String? contratId, required List<TauxAnnuel> lignes}) async {
+    _data.tauxAnnuels.removeWhere(
+        (t) => contratId != null ? t.contratId == contratId : (t.produitId == produitId && t.contratId == null));
+    _data.tauxAnnuels.addAll(lignes);
+    await _commit();
+  }
+
+  /// Taux applicables à un contrat pour une année :
+  /// taux du contrat s'il existe, sinon taux du produit, sinon estimation (année en cours, si paramétré).
+  TauxEffectif tauxEffectif(Contrat c, int annee) {
+    TauxAnnuel? ligne(bool contrat, int y) {
+      for (final t in _data.tauxAnnuels) {
+        if (t.annee != y) continue;
+        if (contrat ? t.contratId == c.id : (t.contratId == null && t.produitId == c.produitId)) return t;
+      }
+      return null;
+    }
+
+    final lc = ligne(true, annee);
+    final lp = ligne(false, annee);
+    int? com = lc?.tauxCommission ?? lp?.tauxCommission;
+    int? ren = lc?.tauxRendement ?? lp?.tauxRendement;
+    final sources = <String>{
+      if (lc?.tauxCommission != null || lc?.tauxRendement != null) 'contrat',
+      if ((lc?.tauxCommission == null && lp?.tauxCommission != null) || (lc?.tauxRendement == null && lp?.tauxRendement != null)) 'produit',
+    };
+    var comEst = false, renEst = false;
+    final p = _data.parametres;
+    if (annee >= today.year && p.estimerAnneeEnCours) {
+      int? dernier(int? Function(TauxAnnuel) f) {
+        for (var y = annee - 1; y >= annee - 30; y--) {
+          final v = (ligne(true, y) != null ? f(ligne(true, y)!) : null) ?? (ligne(false, y) != null ? f(ligne(false, y)!) : null);
+          if (v != null) return v;
+        }
+        return null;
+      }
+
+      if (ren == null) {
+        ren = p.tauxEstimation ?? dernier((t) => t.tauxRendement);
+        renEst = ren != null;
+      }
+      if (com == null) {
+        com = dernier((t) => t.tauxCommission);
+        comEst = com != null;
+      }
+      if (renEst || comEst) sources.add('estimation');
+    }
+    return TauxEffectif(
+      commission: com,
+      rendement: ren,
+      commissionEstimee: comEst,
+      rendementEstime: renEst,
+      source: sources.join(' + '),
+    );
+  }
+
+  // ---------------------------------------------------------------- récapitulatif annuel
+
+  CalculAnnuel get _moteur => CalculAnnuel(_data.parametres, today: today);
+
+  /// Récapitulatif d'un contrat, ou de tous les contrats si [contratId] est null.
+  Recap recap({String? contratId, bool selonTaux = true}) {
+    final cibles = contratId == null ? _data.contrats : _data.contrats.where((c) => c.id == contratId);
+    final recaps = [
+      for (final c in cibles)
+        selonTaux ? _moteur.selonTaux(c, _data.operations, tauxEffectif) : _moteur.selonOperations(c, _data.operations),
+    ];
+    if (contratId != null) return recaps.isEmpty ? Recap([]) : recaps.first;
+    return Recap.somme(recaps);
+  }
+
+  /// Génère, pour les années terminées, les opérations « Commission » et « Revalorisation »
+  /// calculées depuis la table des taux. Les années contenant déjà des revalorisations ou
+  /// commissions saisies à la main sont ignorées. Retourne le nombre d'années traitées.
+  Future<({int traitees, List<int> ignorees})> genererOperationsAnnuelles(String contratId) async {
+    final c = contrat(contratId);
+    if (c == null) return (traitees: 0, ignorees: <int>[]);
+    final r = _moteur.selonTaux(c, _data.operations, tauxEffectif);
+    final lot = newId();
+    var traitees = 0;
+    final ignorees = <int>[];
+    final now = DateTime.now().toUtc();
+    final p = _data.parametres;
+    for (final a in r.annees) {
+      if (a.enCours || a.cloture) continue;
+      final manuelles = _data.operations.any((o) =>
+          o.contratId == contratId &&
+          o.date.year == a.annee &&
+          o.type.estCalculable &&
+          o.origine != OrigineOperation.calculAnnuel);
+      if (manuelles) {
+        ignorees.add(a.annee);
+        continue;
+      }
+      _data.operations.removeWhere((o) =>
+          o.contratId == contratId && o.date.year == a.annee && o.origine == OrigineOperation.calculAnnuel);
+      final dateReval = DateTime(a.annee, p.moisRevalorisation, p.jourRevalorisation);
+      if (a.commission > 0) {
+        _data.operations.add(Operation(
+          id: newId(),
+          contratId: contratId,
+          type: TypeOperation.commission,
+          montant: a.commission,
+          date: dateReval,
+          libelle: 'Commissions ${a.annee} (${Taux.format(a.tauxCommission)} des versements)',
+          origine: OrigineOperation.calculAnnuel,
+          lotId: lot,
+          updatedAt: now,
+        ));
+      }
+      if (a.rendement != 0) {
+        _data.operations.add(Operation(
+          id: newId(),
+          contratId: contratId,
+          type: a.rendement > 0 ? TypeOperation.revalorisation : TypeOperation.frais,
+          montant: a.rendement.abs(),
+          date: dateReval,
+          libelle: 'Rendement ${a.annee} (${Taux.format(a.tauxRendement)})',
+          origine: OrigineOperation.calculAnnuel,
+          lotId: lot,
+          updatedAt: now,
+        ));
+      }
+      traitees++;
+    }
+    await _commit();
+    return (traitees: traitees, ignorees: ignorees);
+  }
+
+  // ---------------------------------------------------------------- saisie de masse
+
+  /// Une cotisation existe-t-elle déjà à cette date pour ce contrat ?
+  bool existeOperation(String contratId, DateTime date, TypeOperation type) => _data.operations.any((o) =>
+      o.contratId == contratId &&
+      o.type == type &&
+      o.date == date &&
+      o.statut != StatutOperation.annulee);
+
+  /// Enregistre un lot d'opérations en une fois. Retourne l'identifiant du lot.
+  Future<String> enregistrerLot(List<Operation> ops) async {
+    final lot = newId();
+    final now = DateTime.now().toUtc();
+    for (final o in ops) {
+      _data.operations.add(Operation(
+        id: newId(),
+        contratId: o.contratId,
+        type: o.type,
+        montant: o.montant,
+        date: o.date,
+        statut: o.statut,
+        libelle: o.libelle,
+        origine: o.origine,
+        lotId: lot,
+        updatedAt: now,
+      ));
+    }
+    await _commit();
+    return lot;
+  }
+
+  /// Lots de saisie d'un contrat (le plus récent d'abord).
+  List<({String lotId, OrigineOperation origine, int nb, int total, DateTime creeLe, DateTime du, DateTime au})> lots(
+      String contratId) {
+    final map = <String, List<Operation>>{};
+    for (final o in _data.operations) {
+      if (o.contratId == contratId && o.lotId != null) map.putIfAbsent(o.lotId!, () => []).add(o);
+    }
+    final out = [
+      for (final e in map.entries)
+        (
+          lotId: e.key,
+          origine: e.value.first.origine,
+          nb: e.value.length,
+          total: e.value.fold(0, (s, o) => s + o.montant),
+          creeLe: e.value.map((o) => o.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+          du: e.value.map((o) => o.date).reduce((a, b) => a.isBefore(b) ? a : b),
+          au: e.value.map((o) => o.date).reduce((a, b) => a.isAfter(b) ? a : b),
+        ),
+    ]..sort((a, b) => b.creeLe.compareTo(a.creeLe));
+    return out;
+  }
+
+  Future<int> annulerLot(String lotId) async {
+    final n = _data.operations.where((o) => o.lotId == lotId).length;
+    _data.operations.removeWhere((o) => o.lotId == lotId);
+    await _commit();
+    return n;
+  }
+
   // ---------------------------------------------------------------- export / import
 
   String exporterJson() => _encode(_data);
@@ -308,6 +555,9 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    merge<Produit>(_data.produits, incoming.produits, (p) => p.id, (p) => p.updatedAt);
+    // Les taux sont fusionnés par cible et par année (une seule ligne par produit/contrat et par an).
+    merge<TauxAnnuel>(_data.tauxAnnuels, incoming.tauxAnnuels, (t) => t.cle, (t) => t.updatedAt);
     merge<Contrat>(_data.contrats, incoming.contrats, (c) => c.id, (c) => c.updatedAt);
     merge<Operation>(_data.operations, incoming.operations, (o) => o.id, (o) => o.updatedAt);
     if (_data.nomUtilisateur.isEmpty) _data.nomUtilisateur = incoming.nomUtilisateur;
@@ -316,8 +566,13 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> toutEffacer() async {
-    final theme = _data.themeMode;
-    _data = AppData(themeMode: theme);
+    // Les référentiels (produits, taux, paramètres) sont conservés.
+    _data = AppData(
+      themeMode: _data.themeMode,
+      produits: _data.produits,
+      tauxAnnuels: _data.tauxAnnuels,
+      parametres: _data.parametres,
+    );
     await _commit();
   }
 
@@ -330,7 +585,7 @@ class AppState extends ChangeNotifier {
     final c = Contrat(
       id: newId(),
       reference: 'AR-2019-004587',
-      produit: ReglesProduit.produits.first,
+      produitId: Produit.idIndividuelle,
       dateEffet: debut,
       dateEcheance: DateTime(today.year + 18, 6, 30),
       cotisation: 150000,
@@ -391,6 +646,19 @@ class AppState extends ChangeNotifier {
         updatedAt: now));
     _data.contrats.add(c);
     _data.operations.addAll(ops);
+    for (var y = debut.year; y <= today.year; y++) {
+      final i = _data.tauxAnnuels.indexWhere((t) => t.produitId == Produit.idIndividuelle && t.contratId == null && t.annee == y);
+      if (i >= 0) continue;
+      _data.tauxAnnuels.add(TauxAnnuel(
+        id: newId(),
+        produitId: Produit.idIndividuelle,
+        annee: y,
+        tauxCommission: 300,
+        tauxRendement: y == today.year ? null : const [240, 250, 290, 330, 340, 320, 300][(y - debut.year) % 7],
+        commentaire: y == today.year ? 'Taux non encore publié' : 'Données de démonstration',
+        updatedAt: now,
+      ));
+    }
     if (_data.nomUtilisateur.isEmpty) _data.nomUtilisateur = 'Karim';
     await _commit();
   }

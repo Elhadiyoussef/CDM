@@ -5,6 +5,7 @@ import 'package:ma_retraite/data/storage.dart';
 import 'package:ma_retraite/models/contrat.dart';
 import 'package:ma_retraite/models/enums.dart';
 import 'package:ma_retraite/models/operation.dart';
+import 'package:ma_retraite/models/produit.dart';
 import 'package:ma_retraite/state/app_state.dart';
 import 'package:ma_retraite/utils/money.dart';
 
@@ -29,7 +30,7 @@ class MemoryStorage implements JsonStorage {
 Contrat _contrat(String id) => Contrat(
       id: id,
       reference: 'REF-$id',
-      produit: 'Test',
+      produitId: Produit.idIndividuelle,
       dateEffet: DateTime(2020, 1, 1),
       cotisation: 150000,
       updatedAt: DateTime.utc(2026),

@@ -31,6 +31,7 @@ class DashboardScreen extends StatelessWidget {
     final echeances = actifs.where((c) => c.dateEcheance != null).map((c) => c.dateEcheance!).toList()..sort();
     final wide = MediaQuery.sizeOf(context).width >= 1000;
     final recentes = s.operations().take(6).toList();
+    final recap = s.recap();
 
     final chart = SectionCard(
       title: 'Évolution du capital',
@@ -44,7 +45,8 @@ class DashboardScreen extends StatelessWidget {
           label: 'Effectuer un versement',
           onTap: actifs.isEmpty ? null : () => showOperationForm(context),
         ),
-        _QuickAction(icon: Icons.insights, label: 'Simuler ma retraite', onTap: () => onNavigate(3)),
+        _QuickAction(icon: Icons.table_chart, label: 'Récapitulatif annuel', onTap: () => onNavigate(3)),
+        _QuickAction(icon: Icons.insights, label: 'Simuler ma retraite', onTap: () => onNavigate(4)),
         _QuickAction(icon: Icons.description, label: 'Mes contrats', onTap: () => onNavigate(1)),
         _QuickAction(icon: Icons.ios_share, label: 'Exporter mes données', onTap: () => exporterDonnees(context)),
       ]),
@@ -105,6 +107,19 @@ class DashboardScreen extends StatelessWidget {
           icon: Icons.beach_access_outlined,
           accent: AppColors.info,
           caption: echeances.isEmpty ? 'Échéance non renseignée' : _restant(echeances.first),
+        ),
+        StatCard(
+          label: 'Épargne nette',
+          value: Money.compact(recap.epargneNette),
+          icon: Icons.savings_outlined,
+          caption: 'Brute ${Money.compact(recap.epargneBrute)} − commissions',
+        ),
+        StatCard(
+          label: 'Commissions retenues',
+          value: Money.compact(-recap.commission),
+          icon: Icons.percent,
+          accent: AppColors.gold,
+          caption: 'Rendement net ${Money.compact(recap.rendement, withSign: true)} · selon les taux',
         ),
       ]),
       const SizedBox(height: 12),
@@ -278,6 +293,10 @@ class _Welcome extends StatelessWidget {
       const SizedBox(height: 24),
       EmptyState(
         icon: Icons.savings_outlined,
+        image: ClipRRect(
+          borderRadius: BorderRadius.circular(26),
+          child: Image.asset('assets/logo/logo.png', width: 112, height: 112),
+        ),
         title: 'Bienvenue dans Ma Retraite',
         message: 'Suivez votre épargne retraite, simulez votre capital futur et gardez l’historique de vos opérations. '
             'Vos données restent sur cet appareil, dans un fichier que vous pouvez exporter vers un autre appareil.',

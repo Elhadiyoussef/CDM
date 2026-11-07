@@ -6,6 +6,9 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/dates.dart';
 import '../widgets/common.dart';
+import '../models/parametres.dart';
+import '../models/taux_annuel.dart';
+import 'referentiels_screen.dart';
 import 'transfer_flow.dart';
 
 class ParametresScreen extends StatefulWidget {
@@ -127,20 +130,33 @@ class _ParametresScreenState extends State<ParametresScreen> {
       ),
       const SizedBox(height: 12),
 
-      // ------------------------------------------------ Règles produit
+      // ------------------------------------------------ Référentiels
       SectionCard(
-        title: 'Règles produit appliquées',
+        title: 'Référentiels',
+        padding: const EdgeInsets.fromLTRB(20, 20, 12, 8),
         child: Column(children: [
-          _Rule('Cotisation minimale', '${s.regles.cotisationMinimale ~/ 100} DH'),
-          _Rule('Rachats partiels maximum', '${s.regles.rachatsPartielsMax}'),
-          _Rule('Plafond par rachat partiel', '${s.regles.plafondRachatPourcent} % de l’épargne'),
-          const SizedBox(height: 8),
-          const InfoBanner(
-            text: "Valeurs indicatives tirées des informations publiques du produit Assur'Retraite, "
-                'à confirmer selon les conditions de votre contrat.',
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.inventory_2_outlined),
+            title: const Text('Produits d’assurance'),
+            subtitle: Text('${s.produits.length} produit(s) · règles de cotisation et de rachat'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProduitsScreen())),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.percent),
+            title: const Text('Taux annuels'),
+            subtitle: Text('${s.data.tauxAnnuels.length} ligne(s) · commission et rendement par année'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TauxAnnuelsScreen())),
           ),
         ]),
       ),
+      const SizedBox(height: 12),
+
+      // ------------------------------------------------ Calcul
+      _CalculCard(),
       const SizedBox(height: 12),
 
       // ------------------------------------------------ Zone sensible
@@ -185,20 +201,98 @@ class _ParametresScreenState extends State<ParametresScreen> {
   }
 }
 
-class _Rule extends StatelessWidget {
-  const _Rule(this.label, this.value);
-  final String label;
-  final String value;
+
+/// Paramètres du calcul des rendements.
+class _CalculCard extends StatefulWidget {
+  @override
+  State<_CalculCard> createState() => _CalculCardState();
+}
+
+class _CalculCardState extends State<_CalculCard> {
+  late final TextEditingController _taux;
+
+  @override
+  void initState() {
+    super.initState();
+    _taux = TextEditingController(text: Taux.toInput(AppScope.read(context).parametres.tauxEstimation));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final p = s.parametres;
     final t = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(children: [
-        Expanded(child: Text(label, style: t.textTheme.bodyMedium?.copyWith(color: t.colorScheme.onSurfaceVariant))),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+    const mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    return SectionCard(
+      title: 'Calcul des rendements',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Méthode de calcul des intérêts', style: t.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SegmentedButton<MethodeInteret>(
+          segments: const [
+            ButtonSegment(value: MethodeInteret.quinzaines, label: Text('Quinzaines (carnet)')),
+            ButtonSegment(value: MethodeInteret.jours, label: Text('Prorata au jour')),
+          ],
+          selected: {p.methode},
+          onSelectionChanged: (v) => s.setParametres(p.copyWith(methode: v.first)),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          p.methode == MethodeInteret.quinzaines
+              ? 'Comme un compte sur carnet : un versement rapporte à partir de la quinzaine suivante (1er ou 16 du mois).'
+              : 'Chaque versement rapporte à partir de sa date, au jour près.',
+          style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant),
+        ),
+        const Divider(height: 28),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Estimer l’année en cours'),
+          subtitle: const Text('Si le taux de l’année n’est pas encore publié par l’assureur.'),
+          value: p.estimerAnneeEnCours,
+          onChanged: (v) => s.setParametres(p.copyWith(estimerAnneeEnCours: v)),
+        ),
+        if (p.estimerAnneeEnCours)
+          TextField(
+            controller: _taux,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+            decoration: const InputDecoration(
+              labelText: 'Taux d’estimation (facultatif)',
+              helperText: 'Vide = dernier taux connu du produit ou du contrat',
+              suffixText: '%',
+            ),
+            onSubmitted: (v) => _saveTaux(s, p, v),
+            onTapOutside: (_) {
+              _saveTaux(s, p, _taux.text);
+              FocusScope.of(context).unfocus();
+            },
+          ),
+        const Divider(height: 28),
+        Row(children: [
+          const Expanded(child: Text('Date de versement de la revalorisation')),
+          DropdownButton<int>(
+            value: p.jourRevalorisation,
+            items: [for (var d = 1; d <= 31; d++) DropdownMenuItem(value: d, child: Text('$d'))],
+            onChanged: (v) => s.setParametres(p.copyWith(jourRevalorisation: v)),
+          ),
+          const SizedBox(width: 8),
+          DropdownButton<int>(
+            value: p.moisRevalorisation,
+            items: [for (var m = 1; m <= 12; m++) DropdownMenuItem(value: m, child: Text(mois[m - 1]))],
+            onChanged: (v) => s.setParametres(p.copyWith(moisRevalorisation: v)),
+          ),
+        ]),
+        Text('Information affichée dans le récapitulatif et date des opérations de rendement générées.',
+            style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
       ]),
     );
+  }
+
+  void _saveTaux(AppState s, ParametresCalcul p, String v) {
+    try {
+      final bp = Taux.parse(v);
+      if (bp != p.tauxEstimation) s.setParametres(bp == null ? p.copyWith(clearTauxEstimation: true) : p.copyWith(tauxEstimation: bp));
+    } on FormatException {
+      showMessage(context, 'Taux d’estimation invalide (ex. 3,00).', error: true);
+    }
   }
 }
