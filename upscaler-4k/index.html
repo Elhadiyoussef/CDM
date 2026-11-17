@@ -66,12 +66,14 @@
   }
   #compare .tag.l { left: 8px; } #compare .tag.r { right: 8px; }
   .note { font-size: .85rem; color: var(--muted); }
+  label.check { display: flex; gap: 8px; align-items: center; color: var(--text); margin-top: 26px; }
+  body.mode-ai .classic-only, body.mode-classic .ai-only { display: none; }
 </style>
 </head>
 <body>
 <header>
   <h1>Upscaler 4K</h1>
-  <p>Agrandissez vos images en 4K directement dans votre navigateur : sans serveur, sans API, sans IA.</p>
+  <p>Améliorez et agrandissez vos images en 4K directement sur votre appareil : sans serveur, sans API, rien n'est envoyé.</p>
 </header>
 
 <main>
@@ -87,14 +89,32 @@
     <div>
       <label for="mode">Taille de sortie</label>
       <select id="mode">
+        <option value="long" selected>4K — côté le plus long = 3840 px (portrait ou paysage)</option>
         <option value="uhd">4K UHD — tenir dans 3840 × 2160</option>
-        <option value="long">Côté le plus long = 3840 px</option>
         <option value="dci">4K DCI — tenir dans 4096 × 2160</option>
         <option value="x2">Agrandir × 2</option>
         <option value="x4">Agrandir × 4</option>
       </select>
     </div>
     <div>
+      <label for="engine">Moteur</label>
+      <select id="engine">
+        <option value="ai">IA locale (Real-ESRGAN, recommandé pour les photos)</option>
+        <option value="classic">Classique (sans IA, instantané)</option>
+      </select>
+    </div>
+    <div class="ai-only">
+      <label for="aiModel">Nettoyage du bruit (IA)</label>
+      <select id="aiModel">
+        <option value="leger">Léger (garde plus de texture)</option>
+        <option value="moyen" selected>Moyen (recommandé)</option>
+        <option value="fort">Fort (photos sombres très bruitées)</option>
+      </select>
+    </div>
+    <div>
+      <label class="check"><input type="checkbox" id="autoColor" checked> Corriger automatiquement lumière et couleurs</label>
+    </div>
+    <div class="classic-only">
       <label for="method">Méthode</label>
       <select id="method">
         <option value="lanczos3">Lanczos-3 (recommandé)</option>
@@ -108,7 +128,7 @@
       <label for="sharpen">Netteté : <span class="val" id="sharpenVal">0.6</span></label>
       <input type="range" id="sharpen" min="0" max="2" step="0.1" value="0.6">
     </div>
-    <div>
+    <div class="classic-only">
       <label for="denoise">Réduction du bruit : <span class="val" id="denoiseVal">0</span></label>
       <input type="range" id="denoise" min="0" max="3" step="1" value="0">
     </div>
@@ -398,7 +418,144 @@ function targetSize(w, h, mode) {
   return [w, h];
 }
 
-go.addEventListener("click", () => {
+// ---------- Mode switch ----------
+function syncMode() {
+  const ai = $("engine").value === "ai";
+  document.body.classList.toggle("mode-ai", ai);
+  document.body.classList.toggle("mode-classic", !ai);
+  $("sharpen").value = ai ? "0.3" : "0.6";
+  $("sharpenVal").textContent = $("sharpen").value;
+}
+$("engine").addEventListener("change", syncMode);
+syncMode();
+
+// ---------- Automatic light / color correction (classic, no AI) ----------
+function autoColor(img) {
+  const d = img.data, n = d.length / 4;
+  // Gray-world white balance, damped so skin tones are not over-corrected.
+  let sr = 0, sg = 0, sb = 0;
+  for (let i = 0; i < d.length; i += 4) { sr += d[i]; sg += d[i + 1]; sb += d[i + 2]; }
+  sr /= n; sg /= n; sb /= n;
+  const avg = (sr + sg + sb) / 3;
+  const damp = (m) => 1 + (avg / Math.max(1, m) - 1) * 0.7;
+  const gr = damp(sr), gg = damp(sg), gb = damp(sb);
+  // Percentile levels on luminance after white balance.
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) {
+    const y = 0.299 * d[i] * gr + 0.587 * d[i + 1] * gg + 0.114 * d[i + 2] * gb;
+    hist[Math.min(255, y | 0)]++;
+  }
+  let lo = 0, hi = 255, acc = 0;
+  for (; lo < 255; lo++) { acc += hist[lo]; if (acc > n * 0.005) break; }
+  acc = 0;
+  for (; hi > 0; hi--) { acc += hist[hi]; if (acc > n * 0.005) break; }
+  if (hi - lo < 32) { lo = 0; hi = 255; }
+  const k = 255 / (hi - lo), sat = 1.2;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = (d[i] * gr - lo) * k, g = (d[i + 1] * gg - lo) * k, b = (d[i + 2] * gb - lo) * k;
+    const y = 0.299 * r + 0.587 * g + 0.114 * b;
+    d[i] = y + (r - y) * sat; d[i + 1] = y + (g - y) * sat; d[i + 2] = y + (b - y) * sat;
+  }
+  return img;
+}
+
+// ---------- Local AI (Real-ESRGAN general x4v3, onnxruntime-web, WASM) ----------
+const BASE = new URL(".", location.href).href;
+let ortPromise = null;
+const sessions = {};
+function loadOrt() {
+  if (window.ort) return Promise.resolve(window.ort);
+  if (!ortPromise) {
+    ortPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = BASE + "ort/ort.wasm.min.js";
+      s.onload = () => {
+        ort.env.wasm.wasmPaths = BASE + "ort/";
+        ort.env.wasm.numThreads = (self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1);
+        resolve(window.ort);
+      };
+      s.onerror = () => { ortPromise = null; reject(new Error("moteur IA introuvable (dossier ort/ manquant)")); };
+      document.head.appendChild(s);
+    });
+  }
+  return ortPromise;
+}
+async function getSession(name) {
+  const ort = await loadOrt();
+  if (!sessions[name]) {
+    sessions[name] = ort.InferenceSession.create(BASE + `models/realesrgan-${name}.onnx`, {
+      executionProviders: ["wasm"], graphOptimizationLevel: "all",
+    }).catch((e) => { delete sessions[name]; throw e; });
+  }
+  return sessions[name];
+}
+
+// Runs the x4 model tile by tile so memory stays small and progress can be shown.
+async function aiUpscale(img, session, onProgress) {
+  const W = img.width, H = img.height, src = img.data;
+  const TILE = 128, PAD = 10, S = 4;
+  const OW = W * S, OH = H * S;
+  const out = new Uint8ClampedArray(OW * OH * 4);
+  const tilesX = Math.ceil(W / TILE), tilesY = Math.ceil(H / TILE), total = tilesX * tilesY;
+  let done = 0;
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const x0 = tx * TILE, y0 = ty * TILE;
+      const x1 = Math.min(W, x0 + TILE), y1 = Math.min(H, y0 + TILE);
+      const px0 = Math.max(0, x0 - PAD), py0 = Math.max(0, y0 - PAD);
+      const px1 = Math.min(W, x1 + PAD), py1 = Math.min(H, y1 + PAD);
+      const tw = px1 - px0, th = py1 - py0, plane = tw * th;
+      const input = new Float32Array(3 * plane);
+      for (let y = 0; y < th; y++) {
+        for (let x = 0; x < tw; x++) {
+          const p = ((py0 + y) * W + px0 + x) * 4, q = y * tw + x;
+          input[q] = src[p] / 255; input[plane + q] = src[p + 1] / 255; input[2 * plane + q] = src[p + 2] / 255;
+        }
+      }
+      const res = await session.run({ input: new ort.Tensor("float32", input, [1, 3, th, tw]) });
+      const o = res.output.data, ow = tw * S, oplane = ow * th * S;
+      for (let y = (y0 - py0) * S; y < (y1 - py0) * S; y++) {
+        for (let x = (x0 - px0) * S; x < (x1 - px0) * S; x++) {
+          const q = y * ow + x;
+          const p = ((py0 * S + y) * OW + px0 * S + x) * 4;
+          out[p] = o[q] * 255 + 0.5; out[p + 1] = o[oplane + q] * 255 + 0.5;
+          out[p + 2] = o[2 * oplane + q] * 255 + 0.5; out[p + 3] = 255;
+        }
+      }
+      onProgress(++done / total);
+      await new Promise((r) => setTimeout(r, 0)); // let the page repaint
+    }
+  }
+  return new ImageData(out, OW, OH);
+}
+
+// Runs the resize / denoise / sharpen worker; resolves with the final ImageData.
+function runWorker(img, dw, dh, opts, onProgress) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(workerUrl);
+    worker.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === "progress") { onProgress(m.value); return; }
+      worker.terminate();
+      if (m.type === "error") reject(new Error(m.message));
+      else resolve(new ImageData(new Uint8ClampedArray(m.pixels), m.dw, m.dh));
+    };
+    worker.onerror = (e) => { worker.terminate(); reject(new Error(e.message || "erreur du worker")); };
+    const buf = img.data.buffer;
+    worker.postMessage({ pixels: buf, sw: img.width, sh: img.height, dw, dh, ...opts }, [buf]);
+  });
+}
+
+function drawScaled(image, w, h) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(image, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
+}
+
+go.addEventListener("click", async () => {
   if (!srcImage) return;
   const sw = srcImage.naturalWidth, sh = srcImage.naturalHeight;
   const [dw, dh] = targetSize(sw, sh, $("mode").value);
@@ -406,52 +563,61 @@ go.addEventListener("click", () => {
     setStatus(`Taille trop grande (${dw} × ${dh}). Choisissez une autre option.`, true);
     return;
   }
-  const c = document.createElement("canvas");
-  c.width = sw; c.height = sh;
-  const ctx = c.getContext("2d");
-  ctx.drawImage(srcImage, 0, 0);
-  const data = ctx.getImageData(0, 0, sw, sh);
-
+  const useAI = $("engine").value === "ai";
+  const sharpenAmount = parseFloat($("sharpen").value);
   go.disabled = true; dl.hidden = true; prog.hidden = false; prog.value = 0;
-  setStatus(`Traitement en cours… (${dw} × ${dh})`);
   const t0 = performance.now();
-  const worker = new Worker(workerUrl);
-  worker.onmessage = async (e) => {
-    const m = e.data;
-    if (m.type === "progress") { prog.value = Math.round(m.value * 100); return; }
-    worker.terminate();
-    if (m.type === "error") { finish(); setStatus("Erreur : " + m.message, true); return; }
-    try {
-      const out = document.createElement("canvas");
-      out.width = m.dw; out.height = m.dh;
-      out.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(m.pixels), m.dw, m.dh), 0, 0);
-      const fmt = $("format").value;
-      const blob = await new Promise((res) => out.toBlob(res, fmt, 0.95));
-      if (!blob) throw new Error("export impossible");
-      const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[fmt];
-      if (lastUrl) URL.revokeObjectURL(lastUrl);
-      lastBlob = blob;
-      lastUrl = URL.createObjectURL(blob);
-      dl.href = lastUrl;
-      dl.download = `${srcName}_${m.dw}x${m.dh}.${ext}`;
-      dl.textContent = `Télécharger (${(blob.size / 1048576).toFixed(1)} Mo)`;
-      dl.hidden = false;
-      showCompare(lastUrl);
-      const secs = ((performance.now() - t0) / 1000).toFixed(1);
-      $("outInfo").innerHTML = `Résultat : <b>${m.dw} × ${m.dh} px</b> (depuis ${sw} × ${sh}) en ${secs} s`;
-      setStatus("Terminé ✓");
-    } catch (err) {
-      setStatus("Erreur : " + err.message, true);
+  try {
+    let result;
+    if (useAI) {
+      setStatus("Chargement du modèle IA…");
+      const session = await getSession($("aiModel").value);
+      // The model enlarges ×4: feed it the image at a quarter of the target size.
+      // Downscaling a blurry photo first also concentrates its real detail.
+      const iw = Math.max(1, Math.min(sw, Math.ceil(dw / 4))), ih = Math.max(1, Math.min(sh, Math.ceil(dh / 4)));
+      let img = drawScaled(srcImage, iw, ih);
+      if ($("autoColor").checked) autoColor(img);
+      setStatus(`IA en cours… (${iw * 4} × ${ih * 4})`);
+      const t1 = performance.now();
+      img = await aiUpscale(img, session, (p) => {
+        prog.value = Math.round(5 + p * 85);
+        const eta = (performance.now() - t1) / p * (1 - p) / 1000;
+        if (p > 0.03) setStatus(`IA en cours… ${Math.round(p * 100)} % (encore ~${Math.ceil(eta)} s)`);
+      });
+      setStatus("Finalisation…");
+      result = await runWorker(img, dw, dh, { method: "lanczos3", sharpenAmount, denoiseLevel: 0 },
+        (p) => { prog.value = Math.round(90 + p * 10); });
+    } else {
+      setStatus(`Traitement en cours… (${dw} × ${dh})`);
+      const img = drawScaled(srcImage, sw, sh);
+      if ($("autoColor").checked) autoColor(img);
+      result = await runWorker(img, dw, dh, {
+        method: $("method").value, sharpenAmount, denoiseLevel: parseInt($("denoise").value, 10),
+      }, (p) => { prog.value = Math.round(p * 100); });
     }
-    finish();
-  };
-  worker.onerror = (e) => { worker.terminate(); finish(); setStatus("Erreur : " + e.message, true); };
-  worker.postMessage({
-    pixels: data.data.buffer, sw, sh, dw, dh,
-    method: $("method").value,
-    sharpenAmount: parseFloat($("sharpen").value),
-    denoiseLevel: parseInt($("denoise").value, 10),
-  }, [data.data.buffer]);
+    const out = document.createElement("canvas");
+    out.width = result.width; out.height = result.height;
+    out.getContext("2d").putImageData(result, 0, 0);
+    const fmt = $("format").value;
+    const blob = await new Promise((res) => out.toBlob(res, fmt, 0.95));
+    if (!blob) throw new Error("export impossible");
+    const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[fmt];
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    lastBlob = blob;
+    lastUrl = URL.createObjectURL(blob);
+    dl.href = lastUrl;
+    dl.download = `${srcName}_${useAI ? "ia_" : ""}${result.width}x${result.height}.${ext}`;
+    dl.textContent = `Télécharger (${(blob.size / 1048576).toFixed(1)} Mo)`;
+    dl.hidden = false;
+    showCompare(lastUrl);
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    $("outInfo").innerHTML = `Résultat : <b>${result.width} × ${result.height} px</b> (depuis ${sw} × ${sh}) en ${secs} s` +
+      (useAI ? " — IA locale" : "");
+    setStatus("Terminé ✓");
+  } catch (err) {
+    setStatus("Erreur : " + (err && err.message || err), true);
+  }
+  finish();
 });
 
 function finish() { go.disabled = !srcImage; prog.hidden = true; }

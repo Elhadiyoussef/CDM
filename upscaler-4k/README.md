@@ -1,6 +1,15 @@
 # Upscaler 4K
 
-Une application web qui agrandit une image en 4K **directement dans le navigateur** : sans serveur, sans API, sans IA. L'image ne quitte jamais l'appareil.
+Une application web qui améliore et agrandit une image en 4K **directement sur l'appareil** (ordinateur ou téléphone) : sans serveur et sans API. L'image ne quitte jamais l'appareil.
+
+Il y a deux moteurs :
+
+- **IA locale** (par défaut) : le modèle open source [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) (`realesr-general-x4v3`, licence BSD-3) tourne dans le navigateur grâce à [onnxruntime-web](https://github.com/microsoft/onnxruntime) (licence MIT). Il supprime le bruit et rend les contours nets. Comptez environ 1 minute sur ordinateur et quelques minutes sur téléphone pour une image en 4K.
+- **Classique** : interpolation Lanczos, bicubique, etc., sans aucune IA. Le résultat est instantané.
+
+Dans les deux modes, une **correction automatique** de la lumière et des couleurs (balance des blancs, niveaux, saturation) est proposée.
+
+> ⚠️ Avec l'IA, la page doit être servie par un serveur web : GitHub Pages, Netlify, ou `python3 -m http.server` dans ce dossier. Un double-clic sur le fichier ne suffit pas, car le navigateur refuse alors de charger les fichiers du modèle. Le mode classique, lui, fonctionne aussi avec un simple double-clic.
 
 ## Utilisation
 
@@ -26,9 +35,17 @@ Une application web qui agrandit une image en 4K **directement dans le navigateu
 - Débruitage léger qui préserve les contours, puis netteté avec un seuil pour ne pas amplifier le bruit.
 - Tout tourne dans un Web Worker, donc la page reste fluide.
 
+## Fichiers
+
+- `index.html` : l'application.
+- `ort/` : le moteur onnxruntime-web (WebAssembly).
+- `models/realesrgan-{leger,moyen,fort}.onnx` : Real-ESRGAN converti en ONNX, avec trois niveaux de débruitage obtenus par interpolation des poids `realesr-general-x4v3` et `realesr-general-wdn-x4v3`.
+
 ## Limite
 
-Sans IA, l'algorithme **n'invente pas de détails** : il calcule les pixels manquants à partir des pixels voisins. Le résultat est bien en 4K et reste propre, mais il ne contient pas plus d'information que l'image d'origine.
+En mode classique, l'algorithme **n'invente pas de détails** : il calcule les pixels manquants à partir des pixels voisins. Le résultat est bien en 4K et reste propre, mais il ne contient pas plus d'information que l'image d'origine.
+
+L'IA locale nettoie beaucoup mieux une photo floue ou bruitée, mais elle ne régénère pas complètement une image comme le font les grosses IA génératives (de type Stable Diffusion), qui demandent une carte graphique puissante.
 
 ## Publier en ligne (facultatif)
 
