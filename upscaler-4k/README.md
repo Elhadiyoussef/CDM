@@ -13,7 +13,7 @@ Dans les deux modes, une **correction automatique** de la lumière et des couleu
 
 ## Utilisation
 
-1. Ouvrez `index.html` dans un navigateur (Chrome, Firefox, Edge ou Safari) : un double-clic suffit.
+1. Ouvrez la page dans un navigateur (Chrome, Firefox, Edge ou Safari), servie par un serveur web (voir ci-dessus).
 2. Glissez une image dans la zone, ou cliquez pour la choisir.
 3. Choisissez les options, puis cliquez sur **Convertir en 4K**.
 4. Comparez avant et après avec le curseur, puis cliquez sur **Télécharger**.
@@ -49,4 +49,4 @@ L'IA locale nettoie beaucoup mieux une photo floue ou bruitée, mais elle ne ré
 
 ## Publier en ligne (facultatif)
 
-Le dossier ne contient qu'un seul fichier statique. Vous pouvez le mettre sur GitHub Pages, Netlify ou n'importe quel hébergement de fichiers.
+Le dossier ne contient que des fichiers statiques (environ 30 Mo avec le modèle). Vous pouvez le mettre sur GitHub Pages, Netlify ou n'importe quel hébergement de fichiers.
