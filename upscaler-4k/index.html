@@ -483,9 +483,14 @@ function loadOrt() {
 async function getSession(name) {
   const ort = await loadOrt();
   if (!sessions[name]) {
-    sessions[name] = ort.InferenceSession.create(BASE + `models/realesrgan-${name}.onnx`, {
-      executionProviders: ["wasm"], graphOptimizationLevel: "all",
-    }).catch((e) => { delete sessions[name]; throw e; });
+    // The ONNX model is stored as .onnx.wasm (some hosts only serve a fixed list of
+    // extensions); it is not WebAssembly, just the model bytes.
+    sessions[name] = fetch(BASE + `models/realesrgan-${name}.onnx.wasm`)
+      .then((r) => { if (!r.ok) throw new Error("modèle IA introuvable"); return r.arrayBuffer(); })
+      .then((buf) => ort.InferenceSession.create(new Uint8Array(buf), {
+        executionProviders: ["wasm"], graphOptimizationLevel: "all",
+      }))
+      .catch((e) => { delete sessions[name]; throw e; });
   }
   return sessions[name];
 }

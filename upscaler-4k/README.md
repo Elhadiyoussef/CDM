@@ -39,7 +39,7 @@ Dans les deux modes, une **correction automatique** de la lumière et des couleu
 
 - `index.html` : l'application.
 - `ort/` : le moteur onnxruntime-web (WebAssembly).
-- `models/realesrgan-{leger,moyen,fort}.onnx` : Real-ESRGAN converti en ONNX, avec trois niveaux de débruitage obtenus par interpolation des poids `realesr-general-x4v3` et `realesr-general-wdn-x4v3`.
+- `models/realesrgan-{leger,moyen,fort}.onnx.wasm` : Real-ESRGAN converti en ONNX. L'extension `.onnx.wasm` sert seulement à contourner les hébergeurs qui refusent `.onnx` : ce n'est pas du WebAssembly, avec trois niveaux de débruitage obtenus par interpolation des poids `realesr-general-x4v3` et `realesr-general-wdn-x4v3`.
 
 ## Limite
 
