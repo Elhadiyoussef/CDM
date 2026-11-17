@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upscaler 4K — local, sans IA</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #181b22; --border: #2a2f3a; --text: #e7e9ee;
+    --muted: #9aa1ad; --accent: #4f8cff; --accent-2: #3a6fd8; --ok: #3ecf8e; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  header { padding: 24px 24px 8px; max-width: 1100px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 1.6rem; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px 24px 48px; display: grid; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  #drop {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center;
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  #drop.over { border-color: var(--accent); background: rgba(79,140,255,.08); }
+  #drop strong { color: var(--accent); }
+  #file { display: none; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  label { display: block; font-size: .9rem; color: var(--muted); margin-bottom: 6px; }
+  select, input[type=range] { width: 100%; }
+  select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px;
+  }
+  .val { color: var(--text); font-variant-numeric: tabular-nums; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 12px 20px;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-2); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  a.btn {
+    display: inline-block; background: var(--ok); color: #0b1a12; text-decoration: none;
+    border-radius: 8px; padding: 12px 20px; font-weight: 700;
+  }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .info { color: var(--muted); font-size: .92rem; }
+  .info b { color: var(--text); }
+  progress { width: 240px; height: 10px; }
+  #status.err { color: var(--err); }
+  #compare {
+    position: relative; overflow: hidden; border-radius: 8px; background: #000;
+    user-select: none; touch-action: none; display: none;
+  }
+  #compare img { display: block; width: 100%; height: auto; }
+  #compare .before { position: absolute; inset: 0; clip-path: inset(0 50% 0 0); }
+  #compare .before img { height: 100%; object-fit: fill; }
+  #compare .handle {
+    position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #fff;
+    box-shadow: 0 0 6px rgba(0,0,0,.6); cursor: ew-resize;
+  }
+  #compare .tag {
+    position: absolute; top: 8px; padding: 2px 8px; font-size: .8rem; border-radius: 4px;
+    background: rgba(0,0,0,.6);
+  }
+  #compare .tag.l { left: 8px; } #compare .tag.r { right: 8px; }
+  .note { font-size: .85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Upscaler 4K</h1>
+  <p>Agrandissez vos images en 4K directement dans votre navigateur : sans serveur, sans API, sans IA.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <div id="drop" tabindex="0" role="button" aria-label="Choisir une image">
+      <p><strong>Cliquez</strong> ou <strong>glissez une image</strong> ici (JPG, PNG, WebP…)</p>
+      <p class="info" id="srcInfo">Aucune image chargée</p>
+    </div>
+    <input type="file" id="file" accept="image/*">
+  </section>
+
+  <section class="panel grid">
+    <div>
+      <label for="mode">Taille de sortie</label>
+      <select id="mode">
+        <option value="uhd">4K UHD — tenir dans 3840 × 2160</option>
+        <option value="long">Côté le plus long = 3840 px</option>
+        <option value="dci">4K DCI — tenir dans 4096 × 2160</option>
+        <option value="x2">Agrandir × 2</option>
+        <option value="x4">Agrandir × 4</option>
+      </select>
+    </div>
+    <div>
+      <label for="method">Méthode</label>
+      <select id="method">
+        <option value="lanczos3">Lanczos-3 (recommandé)</option>
+        <option value="lanczos2">Lanczos-2 (plus doux)</option>
+        <option value="bicubic">Bicubique</option>
+        <option value="bilinear">Bilinéaire</option>
+        <option value="nearest">Plus proche voisin (pixel art)</option>
+      </select>
+    </div>
+    <div>
+      <label for="sharpen">Netteté : <span class="val" id="sharpenVal">0.6</span></label>
+      <input type="range" id="sharpen" min="0" max="2" step="0.1" value="0.6">
+    </div>
+    <div>
+      <label for="denoise">Réduction du bruit : <span class="val" id="denoiseVal">0</span></label>
+      <input type="range" id="denoise" min="0" max="3" step="1" value="0">
+    </div>
+    <div>
+      <label for="format">Format</label>
+      <select id="format">
+        <option value="image/png">PNG (sans perte)</option>
+        <option value="image/jpeg">JPG (qualité 95 %)</option>
+        <option value="image/webp">WebP (qualité 95 %)</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row">
+      <button id="go" disabled>Convertir en 4K</button>
+      <progress id="prog" max="100" value="0" hidden></progress>
+      <span id="status" class="info"></span>
+      <a id="dl" class="btn" hidden>Télécharger</a>
+    </div>
+  </section>
+
+  <section class="panel" id="result" hidden>
+    <p class="info" id="outInfo"></p>
+    <div id="compare">
+      <img id="afterImg" alt="Après">
+      <div class="before"><img id="beforeImg" alt="Avant"></div>
+      <div class="handle"></div>
+      <span class="tag l">Avant (étiré par le navigateur)</span>
+      <span class="tag r">Après</span>
+    </div>
+    <p class="note">Faites glisser la ligne blanche pour comparer. Tout est calculé sur votre appareil : l'image n'est envoyée nulle part.</p>
+  </section>
+</main>
+
+<script id="worker-src" type="text/js-worker">
+"use strict";
+
+// ---------- Resampling kernels ----------
+function sinc(x) {
+  if (x === 0) return 1;
+  const p = Math.PI * x;
+  return Math.sin(p) / p;
+}
+const KERNELS = {
+  nearest:  { radius: 0.5, f: (x) => (x >= -0.5 && x < 0.5 ? 1 : 0) },
+  bilinear: { radius: 1,   f: (x) => { x = Math.abs(x); return x < 1 ? 1 - x : 0; } },
+  bicubic:  { radius: 2,   f: (x) => { // Catmull-Rom (a = -0.5)
+    const a = -0.5; x = Math.abs(x);
+    if (x < 1) return (a + 2) * x * x * x - (a + 3) * x * x + 1;
+    if (x < 2) return a * x * x * x - 5 * a * x * x + 8 * a * x - 4 * a;
+    return 0;
+  } },
+  lanczos2: { radius: 2, f: (x) => (Math.abs(x) < 2 ? sinc(x) * sinc(x / 2) : 0) },
+  lanczos3: { radius: 3, f: (x) => (Math.abs(x) < 3 ? sinc(x) * sinc(x / 3) : 0) },
+};
+
+// Precompute, for each output coordinate, the source indices and normalized weights.
+function buildWeights(srcSize, dstSize, kernel) {
+  const scale = dstSize / srcSize;
+  // When downscaling, stretch the kernel to avoid aliasing.
+  const support = scale < 1 ? kernel.radius / scale : kernel.radius;
+  const kScale = scale < 1 ? scale : 1;
+  const taps = Math.ceil(support * 2) + 1;
+  const idx = new Int32Array(dstSize * taps);
+  const w = new Float32Array(dstSize * taps);
+  for (let o = 0; o < dstSize; o++) {
+    const center = (o + 0.5) / scale - 0.5;
+    const start = Math.floor(center - support) + 1;
+    let sum = 0;
+    for (let t = 0; t < taps; t++) {
+      const s = start + t;
+      const wt = kernel.f((s - center) * kScale);
+      idx[o * taps + t] = Math.min(srcSize - 1, Math.max(0, s));
+      w[o * taps + t] = wt;
+      sum += wt;
+    }
+    if (sum !== 0) for (let t = 0; t < taps; t++) w[o * taps + t] /= sum;
+  }
+  return { idx, w, taps };
+}
+
+// Separable resize on premultiplied float RGBA.
+function resize(src, sw, sh, dw, dh, kernel, progress) {
+  const hx = buildWeights(sw, dw, kernel);
+  const vy = buildWeights(sh, dh, kernel);
+  const tmp = new Float32Array(dw * sh * 4);
+  for (let y = 0; y < sh; y++) {
+    const row = y * sw * 4;
+    for (let x = 0; x < dw; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      const base = x * hx.taps;
+      for (let t = 0; t < hx.taps; t++) {
+        const wt = hx.w[base + t];
+        if (wt === 0) continue;
+        const p = row + hx.idx[base + t] * 4;
+        r += src[p] * wt; g += src[p + 1] * wt; b += src[p + 2] * wt; a += src[p + 3] * wt;
+      }
+      const q = (y * dw + x) * 4;
+      tmp[q] = r; tmp[q + 1] = g; tmp[q + 2] = b; tmp[q + 3] = a;
+    }
+    if ((y & 63) === 0) progress(0.1 + 0.35 * y / sh);
+  }
+  const out = new Float32Array(dw * dh * 4);
+  for (let y = 0; y < dh; y++) {
+    const base = y * vy.taps;
+    const q0 = y * dw * 4;
+    for (let t = 0; t < vy.taps; t++) {
+      const wt = vy.w[base + t];
+      if (wt === 0) continue;
+      const p0 = vy.idx[base + t] * dw * 4;
+      for (let i = 0; i < dw * 4; i++) out[q0 + i] += tmp[p0 + i] * wt;
+    }
+    if ((y & 63) === 0) progress(0.45 + 0.35 * y / dh);
+  }
+  return out;
+}
+
+// Separable Gaussian blur on float RGBA (all channels), returns new buffer.
+function gaussianBlur(buf, w, h, sigma) {
+  const r = Math.max(1, Math.ceil(sigma * 3));
+  const k = new Float32Array(2 * r + 1);
+  let s = 0;
+  for (let i = -r; i <= r; i++) { k[i + r] = Math.exp(-(i * i) / (2 * sigma * sigma)); s += k[i + r]; }
+  for (let i = 0; i < k.length; i++) k[i] /= s;
+  const tmp = new Float32Array(buf.length);
+  const out = new Float32Array(buf.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+      for (let i = -r; i <= r; i++) {
+        const xx = Math.min(w - 1, Math.max(0, x + i));
+        const p = (y * w + xx) * 4, wt = k[i + r];
+        a0 += buf[p] * wt; a1 += buf[p + 1] * wt; a2 += buf[p + 2] * wt; a3 += buf[p + 3] * wt;
+      }
+      const q = (y * w + x) * 4;
+      tmp[q] = a0; tmp[q + 1] = a1; tmp[q + 2] = a2; tmp[q + 3] = a3;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let i = -r; i <= r; i++) {
+      const yy = Math.min(h - 1, Math.max(0, y + i));
+      const wt = k[i + r];
+      const p0 = yy * w * 4, q0 = y * w * 4;
+      for (let j = 0; j < w * 4; j++) out[q0 + j] += tmp[p0 + j] * wt;
+    }
+  }
+  return out;
+}
+
+// Edge-preserving denoise: blend toward a blur only where the local difference is small.
+function denoise(buf, w, h, level) {
+  const blurred = gaussianBlur(buf, w, h, 0.6 + 0.4 * level);
+  const thr = 6 + 6 * level; // in 0..255 units
+  for (let i = 0; i < buf.length; i += 4) {
+    const d = (Math.abs(buf[i] - blurred[i]) + Math.abs(buf[i + 1] - blurred[i + 1]) +
+               Math.abs(buf[i + 2] - blurred[i + 2])) / 3;
+    const t = d >= thr ? 0 : 1 - d / thr;
+    buf[i] += (blurred[i] - buf[i]) * t;
+    buf[i + 1] += (blurred[i + 1] - buf[i + 1]) * t;
+    buf[i + 2] += (blurred[i + 2] - buf[i + 2]) * t;
+  }
+}
+
+// Unsharp mask with a small threshold so flat areas/noise are not amplified.
+function sharpen(buf, w, h, amount, sigma) {
+  const blurred = gaussianBlur(buf, w, h, sigma);
+  const thr = 2;
+  for (let i = 0; i < buf.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      const d = buf[i + c] - blurred[i + c];
+      if (Math.abs(d) > thr) buf[i + c] += d * amount;
+    }
+  }
+}
+
+self.onmessage = (e) => {
+  const { pixels, sw, sh, dw, dh, method, sharpenAmount, denoiseLevel } = e.data;
+  const progress = (p) => self.postMessage({ type: "progress", value: p });
+  try {
+    const src8 = new Uint8ClampedArray(pixels);
+    // Premultiply alpha to avoid dark halos around transparent edges.
+    const src = new Float32Array(src8.length);
+    for (let i = 0; i < src8.length; i += 4) {
+      const a = src8[i + 3] / 255;
+      src[i] = src8[i] * a; src[i + 1] = src8[i + 1] * a; src[i + 2] = src8[i + 2] * a; src[i + 3] = src8[i + 3];
+    }
+    progress(0.1);
+    let out = resize(src, sw, sh, dw, dh, KERNELS[method] || KERNELS.lanczos3, progress);
+    progress(0.8);
+    if (denoiseLevel > 0 && method !== "nearest") denoise(out, dw, dh, denoiseLevel);
+    progress(0.88);
+    if (sharpenAmount > 0 && method !== "nearest") {
+      const scale = dw / sw;
+      sharpen(out, dw, dh, sharpenAmount, Math.min(2.5, Math.max(0.8, scale * 0.5)));
+    }
+    progress(0.96);
+    const res = new Uint8ClampedArray(dw * dh * 4);
+    for (let i = 0; i < res.length; i += 4) {
+      const a = out[i + 3];
+      const inv = a > 0.5 ? 255 / a : 0;
+      res[i] = out[i] * inv; res[i + 1] = out[i + 1] * inv; res[i + 2] = out[i + 2] * inv; res[i + 3] = a;
+    }
+    self.postMessage({ type: "done", pixels: res.buffer, dw, dh }, [res.buffer]);
+  } catch (err) {
+    self.postMessage({ type: "error", message: String(err && err.message || err) });
+  }
+};
+</script>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const drop = $("drop"), fileInput = $("file"), go = $("go"), prog = $("prog"),
+      statusEl = $("status"), dl = $("dl");
+let srcImage = null, srcName = "image", lastUrl = null, beforeUrl = null;
+
+const workerUrl = URL.createObjectURL(new Blob([$("worker-src").textContent], { type: "text/javascript" }));
+
+for (const id of ["sharpen", "denoise"]) {
+  $(id).addEventListener("input", () => { $(id + "Val").textContent = $(id).value; });
+}
+
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") fileInput.click(); });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault(); drop.classList.remove("over");
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg;
+  statusEl.className = "info" + (isErr ? " err" : "");
+}
+
+function loadFile(file) {
+  if (!file.type.startsWith("image/")) { setStatus("Ce fichier n'est pas une image.", true); return; }
+  srcName = file.name.replace(/\.[^.]+$/, "") || "image";
+  if (beforeUrl) URL.revokeObjectURL(beforeUrl);
+  beforeUrl = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    srcImage = img;
+    $("srcInfo").innerHTML = `<b>${escapeHtml(file.name)}</b> — ${img.naturalWidth} × ${img.naturalHeight} px`;
+    go.disabled = false;
+    dl.hidden = true;
+    setStatus("");
+  };
+  img.onerror = () => setStatus("Impossible de lire cette image.", true);
+  img.src = beforeUrl;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function targetSize(w, h, mode) {
+  const fit = (W, H) => { const s = Math.min(W / w, H / h); return [Math.round(w * s), Math.round(h * s)]; };
+  switch (mode) {
+    case "uhd": return fit(3840, 2160);
+    case "dci": return fit(4096, 2160);
+    case "long": { const s = 3840 / Math.max(w, h); return [Math.round(w * s), Math.round(h * s)]; }
+    case "x2": return [w * 2, h * 2];
+    case "x4": return [w * 4, h * 4];
+  }
+  return [w, h];
+}
+
+go.addEventListener("click", () => {
+  if (!srcImage) return;
+  const sw = srcImage.naturalWidth, sh = srcImage.naturalHeight;
+  const [dw, dh] = targetSize(sw, sh, $("mode").value);
+  if (dw * dh > 16384 * 16384 / 2 || dw > 16384 || dh > 16384) {
+    setStatus(`Taille trop grande (${dw} × ${dh}). Choisissez une autre option.`, true);
+    return;
+  }
+  const c = document.createElement("canvas");
+  c.width = sw; c.height = sh;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(srcImage, 0, 0);
+  const data = ctx.getImageData(0, 0, sw, sh);
+
+  go.disabled = true; dl.hidden = true; prog.hidden = false; prog.value = 0;
+  setStatus(`Traitement en cours… (${dw} × ${dh})`);
+  const t0 = performance.now();
+  const worker = new Worker(workerUrl);
+  worker.onmessage = async (e) => {
+    const m = e.data;
+    if (m.type === "progress") { prog.value = Math.round(m.value * 100); return; }
+    worker.terminate();
+    if (m.type === "error") { finish(); setStatus("Erreur : " + m.message, true); return; }
+    try {
+      const out = document.createElement("canvas");
+      out.width = m.dw; out.height = m.dh;
+      out.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(m.pixels), m.dw, m.dh), 0, 0);
+      const fmt = $("format").value;
+      const blob = await new Promise((res) => out.toBlob(res, fmt, 0.95));
+      if (!blob) throw new Error("export impossible");
+      const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[fmt];
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = URL.createObjectURL(blob);
+      dl.href = lastUrl;
+      dl.download = `${srcName}_${m.dw}x${m.dh}.${ext}`;
+      dl.textContent = `Télécharger (${(blob.size / 1048576).toFixed(1)} Mo)`;
+      dl.hidden = false;
+      showCompare(lastUrl);
+      const secs = ((performance.now() - t0) / 1000).toFixed(1);
+      $("outInfo").innerHTML = `Résultat : <b>${m.dw} × ${m.dh} px</b> (depuis ${sw} × ${sh}) en ${secs} s`;
+      setStatus("Terminé ✓");
+    } catch (err) {
+      setStatus("Erreur : " + err.message, true);
+    }
+    finish();
+  };
+  worker.onerror = (e) => { worker.terminate(); finish(); setStatus("Erreur : " + e.message, true); };
+  worker.postMessage({
+    pixels: data.data.buffer, sw, sh, dw, dh,
+    method: $("method").value,
+    sharpenAmount: parseFloat($("sharpen").value),
+    denoiseLevel: parseInt($("denoise").value, 10),
+  }, [data.data.buffer]);
+});
+
+function finish() { go.disabled = !srcImage; prog.hidden = true; }
+
+// ---------- Before / after comparison ----------
+const compare = $("compare"), before = compare.querySelector(".before"), handle = compare.querySelector(".handle");
+function showCompare(afterUrl) {
+  $("afterImg").src = afterUrl;
+  $("beforeImg").src = beforeUrl;
+  $("result").hidden = false;
+  compare.style.display = "block";
+  setSplit(0.5);
+}
+function setSplit(f) {
+  f = Math.min(1, Math.max(0, f));
+  before.style.clipPath = `inset(0 ${(1 - f) * 100}% 0 0)`;
+  handle.style.left = `${f * 100}%`;
+}
+let dragging = false;
+compare.addEventListener("pointerdown", (e) => { dragging = true; compare.setPointerCapture(e.pointerId); move(e); });
+compare.addEventListener("pointermove", (e) => { if (dragging) move(e); });
+compare.addEventListener("pointerup", () => { dragging = false; });
+function move(e) { const r = compare.getBoundingClientRect(); setSplit((e.clientX - r.left) / r.width); }
+</script>
+</body>
+</html>
