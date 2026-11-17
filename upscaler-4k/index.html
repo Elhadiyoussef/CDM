@@ -324,7 +324,25 @@ self.onmessage = (e) => {
 const $ = (id) => document.getElementById(id);
 const drop = $("drop"), fileInput = $("file"), go = $("go"), prog = $("prog"),
       statusEl = $("status"), dl = $("dl");
-let srcImage = null, srcName = "image", lastUrl = null, beforeUrl = null;
+let srcImage = null, srcName = "image", lastUrl = null, beforeUrl = null, lastBlob = null;
+
+// Inside the Claude app, files are saved through the "downloads" capability;
+// in a normal browser the <a download> link is used.
+let claudeDownloads = null;
+if (window.claude && typeof window.claude.use === "function") {
+  window.claude.use("downloads").then((d) => { claudeDownloads = d; }).catch(() => {});
+}
+dl.addEventListener("click", async (e) => {
+  if (!claudeDownloads || !lastBlob) return;
+  e.preventDefault();
+  try {
+    await claudeDownloads.save({ filename: dl.download, data: lastBlob });
+    setStatus("Image enregistrée ✓");
+  } catch (err) {
+    if (err && err.code === "declined") return;
+    setStatus("Téléchargement impossible ici : appuyez longuement sur l'image pour l'enregistrer.", true);
+  }
+});
 
 const workerUrl = URL.createObjectURL(new Blob([$("worker-src").textContent], { type: "text/javascript" }));
 
@@ -412,6 +430,7 @@ go.addEventListener("click", () => {
       if (!blob) throw new Error("export impossible");
       const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[fmt];
       if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastBlob = blob;
       lastUrl = URL.createObjectURL(blob);
       dl.href = lastUrl;
       dl.download = `${srcName}_${m.dw}x${m.dh}.${ext}`;
